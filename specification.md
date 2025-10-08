@@ -44,26 +44,31 @@ CREATE INDEX idx_category_active ON category(sort_order) WHERE archived_at IS NU
 ### tag テーブル
 タグ情報を管理（デパス、頭痛など）
 
-| カラム名    | 型        | 制約                                          | 説明                               |
-| ----------- | --------- | --------------------------------------------- | ---------------------------------- |
-| id          | UUID      | PRIMARY KEY, DEFAULT gen_random_uuid()        | タグID                             |
-| category_id | UUID      | NOT NULL, FK to category.id ON DELETE CASCADE | 所属カテゴリ                       |
-| name        | TEXT      | NOT NULL                                      | タグ名                             |
-| priority    | INTEGER   | DEFAULT 1, CHECK (priority BETWEEN 1 AND 3)   | 重要度（1:通常, 2:スター, 3:重要） |
-| archived_at | TIMESTAMP | NULLABLE                                      | アーカイブ日時（NULLなら表示中）   |
-| created_at  | TIMESTAMP | DEFAULT NOW()                                 | 作成日時                           |
-| updated_at  | TIMESTAMP | DEFAULT NOW()                                 | 更新日時                           |
+| カラム名    | 型        | 制約                                          | 説明                             |
+| ----------- | --------- | --------------------------------------------- | -------------------------------- |
+| id          | UUID      | PRIMARY KEY, DEFAULT gen_random_uuid()        | タグID                           |
+| category_id | UUID      | NOT NULL, FK to category.id ON DELETE CASCADE | 所属カテゴリ                     |
+| name        | TEXT      | NOT NULL                                      | タグ名                           |
+| sort_order  | INTEGER   | NOT NULL                                      | カテゴリ内での表示順             |
+| archived_at | TIMESTAMP | NULLABLE                                      | アーカイブ日時（NULLなら表示中） |
+| created_at  | TIMESTAMP | DEFAULT NOW()                                 | 作成日時                         |
+| updated_at  | TIMESTAMP | DEFAULT NOW()                                 | 更新日時                         |
 
 **制約:**
 ```sql
 UNIQUE(category_id, name)  -- 同一カテゴリ内で名前重複不可
+UNIQUE(category_id, sort_order)  -- 並び順もユニークに保つ
 ```
 
 **インデックス:**
 ```sql
 CREATE INDEX idx_tag_active ON tag(category_id) WHERE archived_at IS NULL;
-CREATE INDEX idx_tag_priority ON tag(priority) WHERE archived_at IS NULL;
+CREATE INDEX idx_tag_sort_order ON tag(sort_order) WHERE archived_at IS NULL;
 ```
+
+**表示順:**
+- 同一カテゴリ内では `sort_order` ASC、次に `name` ASC で表示する
+- ドラッグ&ドロップの結果は `sort_order` に反映される
 
 ---
 
@@ -126,15 +131,16 @@ CREATE TABLE tag (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   category_id UUID NOT NULL REFERENCES category(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
-  priority INTEGER DEFAULT 1 CHECK (priority BETWEEN 1 AND 3),
+  sort_order INTEGER NOT NULL,
   archived_at TIMESTAMP,
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW(),
-  UNIQUE(category_id, name)
+  UNIQUE(category_id, name),
+  UNIQUE(category_id, sort_order)
 );
 
 CREATE INDEX idx_tag_active ON tag(category_id) WHERE archived_at IS NULL;
-CREATE INDEX idx_tag_priority ON tag(priority) WHERE archived_at IS NULL;
+CREATE INDEX idx_tag_sort_order ON tag(sort_order) WHERE archived_at IS NULL;
 
 -- track
 CREATE TABLE track (
@@ -220,7 +226,7 @@ GET /api/tracks?limit=50&before=2025-10-08T10:00:00Z&tag_ids=uuid1,uuid2
         {
           "id": "tag-uuid",
           "name": "デパス",
-          "priority": 1,
+          "sort_order": 12,
           "category_name": "薬",
           "category_color": "#3B82F6"
         }
@@ -395,6 +401,9 @@ DELETE /api/dailies/2025-10-08
 **Query Parameters:**
 - `include_archived`: アーカイブ済みも含めるか（デフォルト: false）
 
+**備考:**
+- カテゴリ内のタグは `sort_order` ASC、同順位の場合は `name` ASC で返す
+
 **Response:**
 ```json
 {
@@ -516,7 +525,7 @@ DELETE /api/dailies/2025-10-08
         {
           "id": "tag-uuid",
           "name": "デパス",
-          "priority": 1,
+          "sort_order": 10,
           "archived_at": null
         }
       ]
@@ -535,7 +544,7 @@ DELETE /api/dailies/2025-10-08
 {
   "category_id": "uuid",
   "name": "デパス",
-  "priority": 1
+  "sort_order": 10
 }
 ```
 
@@ -545,7 +554,7 @@ DELETE /api/dailies/2025-10-08
   "id": "uuid",
   "category_id": "uuid",
   "name": "デパス",
-  "priority": 1,
+  "sort_order": 10,
   "archived_at": null,
   "created_at": "2025-10-08T10:00:00Z",
   "updated_at": "2025-10-08T10:00:00Z"
@@ -561,7 +570,44 @@ DELETE /api/dailies/2025-10-08
 ```json
 {
   "name": "デパス5mg",
-  "priority": 3
+  "sort_order": 8,
+  "category_id": "uuid-category"
+}
+```
+
+**Response:**
+```json
+{
+  "id": "uuid",
+  "category_id": "uuid-category",
+  "name": "デパス5mg",
+  "sort_order": 8,
+  "archived_at": null,
+  "created_at": "2025-10-08T10:00:00Z",
+  "updated_at": "2025-10-08T11:00:00Z"
+}
+```
+
+---
+
+#### PATCH /api/tags/reorder
+タグの並び替え
+
+**Request Body:**
+```json
+{
+  "category_id": "uuid",
+  "orders": [
+    { "id": "tag-uuid-1", "sort_order": 1 },
+    { "id": "tag-uuid-2", "sort_order": 2 }
+  ]
+}
+```
+
+**Response:**
+```json
+{
+  "success": true
 }
 ```
 
@@ -662,7 +708,7 @@ DELETE /api/dailies/2025-10-08
 
 ### tag
 - `name`: 1~50文字、カテゴリ内で重複不可
-- `priority`: 1~3の整数
+- `sort_order`: 1以上の整数
 - `category_id`: 存在するカテゴリID
 
 ### category
@@ -750,15 +796,16 @@ DELETE /api/dailies/2025-10-08
 カテゴリごとにセクション分け:
 ```
 カテゴリ名 [色] [アーカイブボタン]
-- タグ名 [優先度選択] [アーカイブボタン]
-- タグ名 [優先度選択] [アーカイブボタン]
+- タグ名 [ドラッグハンドル] [アーカイブボタン]
+- タグ名 [ドラッグハンドル] [アーカイブボタン]
 
 [アーカイブを表示]トグル
 ```
 
 **機能:**
-- カテゴリ/タグの並び替え（ドラッグ&ドロップ）
-- 優先度変更（通常/スター/重要）
+- カテゴリの並び替え（ドラッグ&ドロップ）
+- タグの並び替え（同カテゴリ内ドラッグ&ドロップ）
+- タグのカテゴリ間移動（ドラッグ&ドロップ）
 - アーカイブ/復元
 - 名前・色の編集
 
@@ -809,8 +856,8 @@ DELETE /api/dailies/2025-10-08
 
 ### 4. 責務の分離
 - `archived_at`: 表示/非表示の制御
-- `priority`: 重要度（1:通常, 2:スター, 3:重要）
-- この2つを分離することで、アーカイブ時に重要度が失われない
+- `sort_order`: 画面上の並び順（カテゴリ内でユニーク）
+- 並び順と公開状態を分けることで、アーカイブ→復元時にも元の並び順を再現できる
 
 ### 5. updated_at自動更新
 - DB側のトリガーまたはORM側で自動更新
@@ -837,7 +884,7 @@ export const tag = pgTable('tag', {
   id: uuid('id').primaryKey().defaultRandom(),
   categoryId: uuid('category_id').notNull().references(() => category.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
-  priority: integer('priority').default(1).notNull(),
+  sortOrder: integer('sort_order').notNull(),
   archivedAt: timestamp('archived_at'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
