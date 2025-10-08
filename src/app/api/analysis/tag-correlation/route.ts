@@ -55,8 +55,8 @@ export async function GET(request: Request) {
     );
   }
 
-  const fromTimestamp = toTimestampRange(from, false);
-  const toTimestamp = toTimestampRange(to, true);
+  const fromTimestamp = toTimestampRange(from, false).toISOString();
+  const toTimestamp = toTimestampRange(to, true).toISOString();
 
   const result = await db.execute(
     sql`

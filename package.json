@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "next lint",
     "db:generate": "drizzle-kit generate",
-    "db:push": "drizzle-kit push"
+    "db:push": "drizzle-kit push",
+    "start:test": "next start -p 3002",
+    "test:e2e": "npm run build && playwright test"
   },
   "dependencies": {
     "@vercel/postgres": "^0.10.0",
@@ -20,7 +22,7 @@
     "zod": "^4.1.12"
   },
   "devDependencies": {
-    "dotenv": "^16.4.5",
+    "@playwright/test": "^1.56.0",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
