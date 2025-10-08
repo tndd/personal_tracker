@@ -1,4 +1,6 @@
 import {
+  check,
+  date,
   index,
   integer,
   pgTable,
@@ -7,9 +9,6 @@ import {
   timestamp,
   uniqueIndex,
   uuid,
-  uuidArray,
-  date,
-  check,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
@@ -63,7 +62,9 @@ export const tracks = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     memo: text("memo"),
     condition: integer("condition").default(0),
-    tagIds: uuidArray("tag_ids").default(sql`'{}'::uuid[]`),
+    tagIds: uuid("tag_ids")
+      .array()
+      .default(sql`'{}'::uuid[]`),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
   },
