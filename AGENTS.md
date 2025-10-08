@@ -1,2 +1,2 @@
 # 変更履歴
-- 2025-10-08: `specification.md` を更新し、`track`テーブルの日時型を`TIMESTAMPZ`へ変更。`category`および`tag`テーブルの`sort_order`整合条件、`tag`テーブルのユニーク制約、`updated_at`更新方式（アプリ側で `NOW()` を明示設定する方針）を追記。
+- 2025-10-08: `specification.md` を更新し、日時型を`TIMESTAMPTZ`へ統一。`category`/`tag`の整合条件、`tag_ids`での存在しないID無視の仕様、`updated_at`の運用方針、API草案を追記。
