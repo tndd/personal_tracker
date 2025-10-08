@@ -19,6 +19,9 @@ Auth:      なし（個人用）
 
 # データベース設計
 
+**共通仕様**
+- `updated_at` はアプリケーション側で更新時に `NOW()` を明示的に設定する。
+
 ## category テーブル
 カテゴリ情報を管理（薬、症状、食事など）
 
@@ -31,6 +34,9 @@ Auth:      なし（個人用）
 | archived_at | TIMESTAMP | NULLABLE                                      | アーカイブ日時（NULLなら表示中） |
 | created_at  | TIMESTAMP | DEFAULT NOW()                                 | 作成日時                         |
 | updated_at  | TIMESTAMP | DEFAULT NOW()                                 | 更新日時                         |
+
+**整合条件:**
+- `sort_order` はカテゴリ全体で重複しない連番（0以上）を維持する。
 
 
 ---
@@ -48,24 +54,23 @@ Auth:      なし（個人用）
 | created_at  | TIMESTAMP | DEFAULT NOW()                                 | 作成日時                         |
 | updated_at  | TIMESTAMP | DEFAULT NOW()                                 | 更新日時                         |
 
-
-**表示順:**
-- 同一カテゴリ内では `sort_order` ASC、次に `name` ASC で表示する
-- ドラッグ&ドロップの結果は `sort_order` に反映される
+**整合条件:**
+- 各カテゴリ内で `sort_order` は重複しない連番（0以上）を維持する。
+- `UNIQUE(category_id, name)` を付与し、カテゴリ内での名称重複を禁止する。
 
 ---
 
 ## track テーブル
 日々の記録（メモ、コンディション、タグ）
 
-| カラム名   | 型        | 制約                                          | 説明                     |
-| ---------- | --------- | --------------------------------------------- | ------------------------ |
-| id         | UUID      | PRIMARY KEY, DEFAULT gen_random_uuid()        | トラックID               |
-| memo       | TEXT      | CHECK (char_length(memo) <= 1000)             | メモ内容（最大1000文字） |
-| condition  | INTEGER   | DEFAULT 0, CHECK (condition BETWEEN -2 AND 2) | コンディション（-2~2）   |
-| tag_ids    | UUID[]    | DEFAULT '{}'                                  | 紐付いたタグIDの配列     |
-| created_at | TIMESTAMP | DEFAULT NOW()                                 | 作成日時                 |
-| updated_at | TIMESTAMP | DEFAULT NOW()                                 | 更新日時                 |
+| カラム名   | 型          | 制約                                          | 説明                       |
+| ---------- | ----------- | --------------------------------------------- | -------------------------- |
+| id         | UUID        | PRIMARY KEY, DEFAULT gen_random_uuid()        | トラックID                 |
+| memo       | TEXT        | CHECK (char_length(memo) <= 1000)             | メモ内容（最大1000文字）   |
+| condition  | INTEGER     | DEFAULT 0, CHECK (condition BETWEEN -2 AND 2) | コンディション（-2~2）     |
+| tag_ids    | UUID[]      | DEFAULT '{}'                                  | 紐付いたタグIDの配列       |
+| created_at | TIMESTAMPTZ | DEFAULT NOW()                                 | 記録日時（タイムゾーン込） |
+| updated_at | TIMESTAMPTZ | DEFAULT NOW()                                 | 更新日時                   |
 
 ---
 
