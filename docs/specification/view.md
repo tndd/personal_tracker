@@ -146,3 +146,196 @@
 - API リフェッチは visibilitychange や週次訪問時に自動実行し、データ鮮度を保つ。
 - PC/タブレット優先だが、モバイルではタブバーを下部固定に変更し、サイドパネルは全画面モーダルへ切り替える。
 - アクセシビリティ: タブとフォーム要素には `aria-*` 属性を適切に付与し、キーボード操作で全操作が完結するようにする。
+
+## プロトタイプ（ワイヤーフレーム）
+
+### 共通レイアウト
+```
++--------------------------------------------------------------+
+| Header: ロゴ | 今日(2025-10-09) | Tabs[Track][Daily][Analysis][Tag] |
++--------------------------------------------------------------+
+| Toast Stack (右上)                                           |
++--------------------------------------------------------------+
+| Main Container (max-width: 960px, 中央寄せ)                  |
+|   ├─ Contextual Panel / Sidebar (必要時のみ表示)             |
+|   └─ Primary Column                                          |
++--------------------------------------------------------------+
+| Footer Utility (ショートカット、フィードバックリンク)        |
++--------------------------------------------------------------+
+```
+
+### Track 画面ワイヤーフレーム
+```
++--------------------------------------------------------------+
+| Header                                                       |
++--------------------------------------------------------------+
+| 新着バー (未読n件, リロードボタン) ↑方向スクロールで非表示      |
++--------------------------------------------------------------+
+| 投稿フォーム                                                 |
+|   Memo Textarea (auto-grow)                                  |
+|   Condition Slider [-2 -1 0 +1 +2]                           |
+|   タグアコーディオン:                                        |
+|       [カテゴリA] [Tag Chip][Tag Chip]                       |
+|       [カテゴリB] [Tag Chip]                                 |
+|   最近使ったタグ (チップ5件)                                 |
+|   送信ボタン / キャンセル                                   |
++--------------------------------------------------------------+
+| タイムラインスクロール領域（上方向が過去）                   |
+|   ├─ TrackCard                                               |
+|   |    Header: 12:34 / 更新 12:40 / Condition +1             |
+|   |    Body: Memo (markdown簡易レンダリング)                |
+|   |    Tags: [頭痛][服薬]                                    |
+|   |    Actions: 編集 / 削除 / Tag管理へ                      |
+|   ├─ TrackCard ...                                           |
+|   └─ Loading Skeleton (3枚)                                  |
++--------------------------------------------------------------+
+| Infinite Loader (IntersectionObserver)                       |
++--------------------------------------------------------------+
+```
+
+#### Track 画面フロープロトタイプ
+```mermaid
+flowchart TD
+    Load[初回マウント\nGET /api/tracks?limit=50] --> RenderTimeline
+    RenderTimeline --> ScrollTop{上端到達?}
+    ScrollTop -- Yes --> FetchMore[GET /api/tracks?cursor=<oldest>]
+    ScrollTop -- No --> Idle
+    FormSubmit[投稿フォーム送信] --> Post[POST /api/tracks]
+    Post --> OptimisticInsert[ローカル先頭へ挿入]
+    OptimisticInsert --> Refetch[GET /api/tracks\n最新を再取得]
+    Edit[カード編集] --> Patch[PATCH /api/tracks/:id]
+    Patch --> Refetch
+    Delete[カード削除] --> Confirm[確認ダイアログ]
+    Confirm -->|OK| Remove[DELETE /api/tracks/:id]
+    Remove --> Refetch
+```
+
+### Daily 画面ワイヤーフレーム
+```
++--------------------------------------------------------------+
+| Header                                                       |
++--------------------------------------------------------------+
+| モードトグル [カレンダー][リスト] | 期間ピッカー              |
++--------------------------------------------------------------+
+| レイアウト: 左=メイン, 右=サイドフォーム                     |
+| 左側                                                          
+|   ├─ カレンダービュー (月グリッド, セル色=condition)         |
+|   └─ リストビュー (active時のみ高さ0→表示)                  |
+|        [日付ヘッダー][Conditionバッジ][メモ抜粋]             |
+|        [編集][削除]                                          |
+| 右側                                                          
+|   └─ 日付フォーム (選択日 / 当日)                            |
+|        Condition Slider, Memo Textarea, 保存ボタン           |
++--------------------------------------------------------------+
+| 下部: 過去読み込みボタン / 無限スクロールローダー            |
++--------------------------------------------------------------+
+```
+
+#### Daily 画面フロープロトタイプ
+```mermaid
+flowchart TD
+    Start[初回表示] --> Fetch30[GET /api/daily?from=-30d]
+    Fetch30 --> Cache[List化 / カレンダーにバインド]
+    ToggleMode[モード切替] --> RenderCalendar
+    ToggleMode --> RenderList
+    SelectDate[日付選択] --> CheckCache{キャッシュ有無}
+    CheckCache -- 有 --> OpenPanel[サイドフォームに反映]
+    CheckCache -- 無 --> FetchOne[GET /api/daily/:date]
+    FetchOne --> OpenPanel
+    Save[フォーム保存] --> Put[PUT /api/daily/:date]
+    Put --> UpdateCache[キャッシュ差し替え]
+    Delete[削除ボタン] --> Confirm
+    Confirm -->|OK| DelReq[DELETE /api/daily/:date]
+    DelReq --> RemoveCache[キャッシュから除去]
+    ScrollPast[過去方向スクロール] --> ExtendRange[新from計算]
+    ExtendRange --> FetchMore[GET /api/daily?from=new]
+    FetchMore --> MergeCache
+```
+
+### Analysis 画面ワイヤーフレーム
+```
++--------------------------------------------------------------+
+| Header                                                       |
++--------------------------------------------------------------+
+| 期間ピッカー [7d][30d][90d][Custom]                          |
++--------------------------------------------------------------+
+| KPIカード群 (任意: 最高/最低コンディションなど)             |
++--------------------------------------------------------------+
+| 折れ線グラフカード (Condition Trend)                         |
+|   Y軸: -2〜+2, X軸: 日付                                     |
+|   Hover Tooltip                                              |
+| テーブル + バーチャートカード (Tag Correlation)             |
+|   列: Tag / Usage / Avg condition                            |
+|   ソートドロップダウン                                       |
++--------------------------------------------------------------+
+| サイドバー (タグ選択→直近Track)                              |
++--------------------------------------------------------------+
+```
+
+#### Analysis 画面フロープロトタイプ
+```mermaid
+flowchart TD
+    Mount[マウント] --> ParallelFetch
+    ParallelFetch --> Trend[GET /analysis/condition-trend]
+    ParallelFetch --> Corr[GET /analysis/tag-correlation]
+    Trend --> RenderTrend
+    Corr --> RenderTable
+    DateChange[期間変更] --> ParallelFetch
+    TagClick[タグ行クリック] --> SideFetch[GET /api/tracks?tagId=... limit=20]
+    SideFetch --> RenderSidebar
+```
+
+### Tag 画面ワイヤーフレーム
+```
++--------------------------------------------------------------+
+| Header                                                       |
++--------------------------------------------------------------+
+| レイアウト: 左=カテゴリ列 / 右=タグボード                    |
++--------------------------------------------------------------+
+| 左カラム                                                     |
+|   [カテゴリ検索][アーカイブ表示トグル]                       |
+|   + カテゴリ追加ボタン                                       |
+|   ├─ カテゴリカード:                                         |
+|   |    カラーサンプル + 名称 + 件数 + 並び替えハンドル      |
+|   |    クリックで選択状態                                    |
+|   └─ ...                                                     |
++--------------------------------------------------------------+
+| 右カラム                                                     |
+|   Header: 選択カテゴリ名 + 並び替え保存ボタン                |
+|   + タグ追加ボタン                                           |
+|   ├─ タグカード: 名称 / 使われた回数 / 操作 (編集/アーカイブ) |
+|   ├─ ...                                                     |
+|   └─ アーカイブ済みは半透明 + 解除ボタン                     |
++--------------------------------------------------------------+
+| 並び替え中表示: 固定ボトムバーに「並び替え中」「保存/取り消し」|
++--------------------------------------------------------------+
+```
+
+#### Tag 画面フロープロトタイプ
+```mermaid
+flowchart TD
+    Mount -- GET /api/categories --> CatList
+    CatList --> ForEachCats[/カテゴリごとに\nGET /api/tags?category_id/]
+    ForEachCats --> TagBoards
+    AddCat[カテゴリ追加] --> PostCat[POST /api/categories]
+    PostCat --> RefreshCats[GET /api/categories]
+    SelectCat --> RenderBoard
+    ReorderCat[カテゴリ並び替え完了] --> PostReorderCat[POST /api/categories/reorder]
+    AddTag[タグ追加] --> PostTag[POST /api/tags]
+    PostTag --> RefreshTags[GET /api/tags?category_id]
+    EditTag --> PatchTag[PATCH /api/tags/:id]
+    PatchTag --> RefreshTags
+    MoveTag --> PatchTag
+    ReorderTag --> PostReorderTag[POST /api/tags/reorder]
+    ToggleArchive --> RefetchCatsAndTags
+```
+
+### モバイル時レイアウトメモ
+```
++-------------------+    +-------------------+
+| Header            |    | Bottom Tab Bar    |
+|  (ハンバーガー)   |    | [Track][Daily][Analysis][Tag] |
++-------------------+    +-------------------+
+| 各画面とも1カラム |    | サイドパネル→全画面モーダル |
++-------------------+    +-------------------+
+```
