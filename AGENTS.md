@@ -5,3 +5,4 @@
 - 2025-10-09: PlaywrightベースのAPI E2Eテストを追加し、`test:e2e` スクリプトと `start:test` を整備。`TEST_DATABASE_URL` の運用とテスト用DB初期化ユーティリティを導入。`docs/specification/api.md` を詳細版へ差し替え。
 - 2025-10-09: `docs/specification/view.md` を刷新し、Track/Daily/Analysis/Tag 各画面のUI仕様とAPI整合性を定義。
 - 2025-10-09: `docs/specification/view.md` に画面ワイヤーフレームとフローチャートを追記し、プロトタイプを可視化。
+- 2025-10-09: Storybook用にTrack/Daily/Analysis/Tag各画面のプロトタイプコンポーネントとストーリーを追加し、共通ヘッダーやTailwind読み込みを整備。
