@@ -161,9 +161,9 @@ export function TrackPrototype({
   return (
     <div className="min-h-screen bg-slate-50">
       <AppHeader activeTab={activeTab} />
-      <main className="mx-auto flex h-[calc(100vh-64px)] max-w-full gap-0 px-6 py-6">
+      <main className="flex h-[calc(100vh-64px)] gap-0">
         {/* 左サイドバー */}
-        <aside className="w-60 shrink-0 rounded-l-xl border border-r-0 border-gray-200 bg-white shadow-sm">
+        <aside className="w-60 shrink-0 border-r border-gray-200 bg-white">
           <div className="flex flex-col gap-1 p-3">
             {/* Search */}
             <button
@@ -238,7 +238,7 @@ export function TrackPrototype({
         </aside>
 
         {/* メインコンテンツエリア */}
-        <section className="flex flex-1 flex-col rounded-r-xl border border-gray-200 bg-white shadow-sm">
+        <section className="flex flex-1 flex-col border-r border-gray-200 bg-white">
           {/* Search パネル */}
           {showSearchPanel && (
             <div className="border-b border-gray-200 bg-gray-50 px-4 py-3">
@@ -386,10 +386,10 @@ export function TrackPrototype({
                 <textarea
                   value={draft}
                   onChange={(event) => setDraft(event.target.value)}
-                  className="h-32 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring"
+                  className="h-20 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring"
                   placeholder="メモや気づきを記録。@ からタグを呼び出せます..."
                 />
-                <div className="pointer-events-none absolute inset-x-3 bottom-3 flex items-center justify-between text-xs text-gray-400">
+                <div className="pointer-events-none absolute inset-x-3 bottom-2 flex items-center justify-between text-xs text-gray-400">
                   <span>Shift + Enter で改行</span>
                   <span>{draft.length}/1000</span>
                 </div>
@@ -427,6 +427,12 @@ export function TrackPrototype({
                       添付
                     </button>
                   </div>
+                  <button
+                    type="button"
+                    className="rounded bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm"
+                  >
+                    記録する
+                  </button>
                 </div>
                 {mentionOpen && (
                   <div
@@ -457,14 +463,6 @@ export function TrackPrototype({
                     </div>
                   </div>
                 )}
-              </div>
-              <div className="flex items-center justify-end gap-3">
-                <button
-                  type="button"
-                  className="rounded bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm"
-                >
-                  記録する
-                </button>
               </div>
             </div>
           </div>
