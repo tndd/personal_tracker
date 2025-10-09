@@ -81,9 +81,27 @@ export const Default: Story = {
   },
 };
 
-export const NoUnread: Story = {
+export const WithMoreEntries: Story = {
   args: {
     ...Default.args,
-    hasUnread: false,
+    entries: [
+      ...(Default.args?.entries || []),
+      {
+        id: "track-4",
+        memo: "調子が悪い一日だった。",
+        condition: -2,
+        createdAt: "2025-10-06 20:00",
+        updatedAt: "2025-10-06 20:00",
+        tags: [sampleTags[2]],
+      },
+      {
+        id: "track-5",
+        memo: "とても良い気分で過ごせた!",
+        condition: 2,
+        createdAt: "2025-10-05 18:30",
+        updatedAt: "2025-10-05 18:30",
+        tags: [sampleTags[3]],
+      },
+    ],
   },
 };
