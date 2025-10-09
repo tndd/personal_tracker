@@ -52,7 +52,6 @@ const sampleCategories = [
 export const Default: Story = {
   args: {
     categories: sampleCategories,
-    recentTags: sampleTags.slice(0, 3),
     entries: [
       {
         id: "track-1",

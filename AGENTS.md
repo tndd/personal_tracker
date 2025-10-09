@@ -6,3 +6,4 @@
 - 2025-10-09: `docs/specification/view.md` を刷新し、Track/Daily/Analysis/Tag 各画面のUI仕様とAPI整合性を定義。
 - 2025-10-09: `docs/specification/view.md` に画面ワイヤーフレームとフローチャートを追記し、プロトタイプを可視化。
 - 2025-10-09: Storybook用にTrack/Daily/Analysis/Tag各画面のプロトタイプコンポーネントとストーリーを追加し、共通ヘッダーやTailwind読み込みを整備。
+- 2025-10-09: TrackプロトタイプをSlack風レイアウトへ改修し、メンション式タグ挿入や自然なタイムライン表示へ刷新。

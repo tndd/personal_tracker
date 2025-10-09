@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AppHeader } from "../AppHeader";
 import type { AppTab } from "../AppHeader";
 
@@ -26,7 +26,6 @@ export interface TrackEntry {
 export interface TrackPrototypeProps {
   entries: TrackEntry[];
   categories: TagCategory[];
-  recentTags: TrackTag[];
   hasUnread?: boolean;
   activeTab?: AppTab;
 }
@@ -39,7 +38,7 @@ const CONDITION_LABEL: Record<TrackEntry["condition"], string> = {
   2: "とても良い",
 };
 
-const CONDITION_COLORS: Record<TrackEntry["condition"], string> = {
+const CONDITION_BADGE_CLASSES: Record<TrackEntry["condition"], string> = {
   "-2": "bg-red-600",
   "-1": "bg-orange-500",
   0: "bg-gray-500",
@@ -47,22 +46,38 @@ const CONDITION_COLORS: Record<TrackEntry["condition"], string> = {
   2: "bg-blue-700",
 };
 
+const CONDITION_DOT_CLASSES: Record<TrackEntry["condition"], string> = {
+  "-2": "bg-red-500",
+  "-1": "bg-orange-400",
+  0: "bg-gray-400",
+  1: "bg-sky-400",
+  2: "bg-blue-600",
+};
+
 /**
  * Track画面のワイヤーフレーム兼プロトタイプ。
+ * Slack風にタイムラインを上部に配置し、入力エリアを下部に寄せている。
  */
 export function TrackPrototype({
   entries,
   categories,
-  recentTags,
   hasUnread = true,
   activeTab = "track",
 }: TrackPrototypeProps) {
+  const [draft, setDraft] = useState("");
+  const [composerCondition, setComposerCondition] =
+    useState<TrackEntry["condition"]>(0);
+  const [selectedMentions, setSelectedMentions] = useState<TrackTag[]>([]);
+  const [mentionOpen, setMentionOpen] = useState(false);
+  const mentionButtonRef = useRef<HTMLButtonElement | null>(null);
+  const mentionPopoverRef = useRef<HTMLDivElement | null>(null);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [conditionFilter, setConditionFilter] = useState<
     TrackEntry["condition"][]
   >([-2, -1, 0, 1, 2]);
+  const [filterOpen, setFilterOpen] = useState(false);
   const [openCategories, setOpenCategories] = useState<string[]>(
-    categories.map((cat) => cat.id)
+    categories.map((category) => category.id)
   );
 
   const filteredEntries = useMemo(() => {
@@ -75,19 +90,15 @@ export function TrackPrototype({
     });
   }, [conditionFilter, entries, selectedTagIds]);
 
+  const timelineEntries = useMemo(() => {
+    return [...filteredEntries].reverse();
+  }, [filteredEntries]);
+
   const toggleTag = (tagId: string) => {
     setSelectedTagIds((prev) =>
       prev.includes(tagId)
         ? prev.filter((id) => id !== tagId)
         : [...prev, tagId]
-    );
-  };
-
-  const toggleCondition = (value: TrackEntry["condition"]) => {
-    setConditionFilter((prev) =>
-      prev.includes(value)
-        ? prev.filter((cond) => cond !== value)
-        : [...prev, value]
     );
   };
 
@@ -99,69 +110,118 @@ export function TrackPrototype({
     );
   };
 
+  const toggleConditionFilter = (value: TrackEntry["condition"]) => {
+    setConditionFilter((prev) =>
+      prev.includes(value)
+        ? prev.filter((cond) => cond !== value)
+        : [...prev, value]
+    );
+  };
+
+  const addMention = (tag: TrackTag) => {
+    if (!selectedMentions.some((item) => item.id === tag.id)) {
+      setSelectedMentions((prev) => [...prev, tag]);
+    }
+    setDraft((prev) => {
+      const spacing =
+        prev.length === 0 || prev.endsWith(" ") || prev.endsWith("\n") ? "" : " ";
+      return `${prev}${spacing}@${tag.name} `;
+    });
+  };
+
+  const removeMention = (tagId: string) => {
+    setSelectedMentions((prev) => prev.filter((tag) => tag.id !== tagId));
+  };
+
+  useEffect(() => {
+    if (!mentionOpen) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        mentionPopoverRef.current &&
+        !mentionPopoverRef.current.contains(target) &&
+        mentionButtonRef.current &&
+        !mentionButtonRef.current.contains(target)
+      ) {
+        setMentionOpen(false);
+      }
+    };
+    window.addEventListener("mousedown", handleClickOutside);
+    return () => window.removeEventListener("mousedown", handleClickOutside);
+  }, [mentionOpen]);
+
   return (
     <div className="min-h-screen bg-slate-50">
       <AppHeader activeTab={activeTab} />
-      <main className="mx-auto flex max-w-5xl flex-col gap-6 px-6 py-8">
-        {hasUnread && (
-          <div className="flex items-center justify-between rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm text-indigo-700">
-            <span>新着のトラックがあります。タイムラインを更新しますか？</span>
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                className="rounded border border-indigo-500 px-2 py-1 text-indigo-600"
-              >
-                後で確認
-              </button>
-              <button
-                type="button"
-                className="rounded bg-indigo-600 px-3 py-1 text-white"
-              >
-                更新する
-              </button>
-            </div>
-          </div>
-        )}
-
-        <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-          <h2 className="text-lg font-semibold text-gray-900">新規トラック</h2>
-          <form className="mt-4 flex flex-col gap-4">
-            <textarea
-              className="min-h-[120px] w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring"
-              placeholder="今起きたことや気づきを記録..."
-            />
-            <div>
-              <p className="text-xs font-semibold text-gray-500">コンディション</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {([-2, -1, 0, 1, 2] as TrackEntry["condition"][]).map(
-                  (condition) => (
-                    <button
-                      key={condition}
-                      type="button"
-                      className={`rounded-full border px-3 py-1 text-sm transition ${
-                        condition === 0 ? "border-gray-400" : "border-transparent"
-                      } bg-gray-100 text-gray-700 hover:bg-gray-200`}
-                    >
-                      {condition} {CONDITION_LABEL[condition]}
-                    </button>
-                  )
-                )}
+      <main className="mx-auto flex min-h-[calc(100vh-64px)] max-w-5xl flex-col gap-6 px-6 py-6">
+        <section className="flex flex-1 flex-col rounded-xl border border-gray-200 bg-white shadow-sm">
+          {hasUnread && (
+            <div className="flex items-center justify-between bg-indigo-50 px-4 py-2 text-xs text-indigo-700">
+              <span>新着のトラックがあります。最新の投稿を確認しますか？</span>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  className="rounded border border-indigo-400 px-2 py-1"
+                >
+                  後で
+                </button>
+                <button
+                  type="button"
+                  className="rounded bg-indigo-600 px-3 py-1 text-white"
+                >
+                  今すぐ読む
+                </button>
               </div>
             </div>
-            <div>
-              <p className="text-xs font-semibold text-gray-500">タグ選択</p>
-              <div className="mt-3 space-y-2">
+          )}
+
+          <div className="border-b border-gray-200 px-4 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-sm font-semibold text-gray-700">トラック</h2>
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2">
+                  {([-2, -1, 0, 1, 2] as TrackEntry["condition"][]).map((value) => (
+                    <label
+                      key={value}
+                      className="flex items-center gap-1 text-[11px] text-gray-600"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={conditionFilter.includes(value)}
+                        onChange={() => toggleConditionFilter(value)}
+                        className="h-3 w-3 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      {value}
+                    </label>
+                  ))}
+                </div>
+                <input
+                  type="search"
+                  placeholder="メモ内検索"
+                  className="rounded border border-gray-200 px-3 py-1 text-xs focus:border-indigo-500 focus:outline-none focus:ring"
+                />
+                <button
+                  type="button"
+                  onClick={() => setFilterOpen((prev) => !prev)}
+                  className="rounded-full border border-gray-200 px-3 py-1 text-xs text-gray-600 hover:border-indigo-300 hover:text-indigo-600"
+                >
+                  タグフィルタ
+                </button>
+              </div>
+            </div>
+            {filterOpen && (
+              <div className="mt-3 space-y-2 rounded-lg border border-gray-100 bg-gray-50 p-3">
                 {categories.map((category) => {
                   const open = openCategories.includes(category.id);
                   return (
-                    <div key={category.id} className="rounded-lg border border-gray-200">
+                    <div key={category.id} className="rounded border border-gray-200 bg-white">
                       <button
                         type="button"
-                        className="flex w-full items-center justify-between px-3 py-2 text-sm font-medium text-gray-700"
                         onClick={() => toggleCategory(category.id)}
+                        className="flex w-full items-center justify-between px-3 py-2 text-xs font-semibold text-gray-600"
                       >
                         <span>{category.name}</span>
-                        <span className="text-xs text-gray-400">
+                        <span className="text-[11px] text-gray-400">
                           {open ? "閉じる" : "開く"}
                         </span>
                       </button>
@@ -181,7 +241,7 @@ export function TrackPrototype({
                                       : "border-gray-200 bg-white text-gray-600 hover:bg-gray-100"
                                   }`}
                                 >
-                                  {tag.name}
+                                  #{tag.name}
                                 </button>
                               );
                             })}
@@ -192,126 +252,162 @@ export function TrackPrototype({
                   );
                 })}
               </div>
+            )}
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-4 pb-4">
+            <div className="flex h-full flex-col gap-4 pb-6">
+              {timelineEntries.map((entry) => {
+                const displayCondition =
+                  entry.condition > 0 ? `+${entry.condition}` : `${entry.condition}`;
+                return (
+                  <article
+                    key={entry.id}
+                    className="relative rounded-lg border border-gray-100 bg-white/80 p-4 pl-10 shadow-sm"
+                  >
+                    <span
+                      className={`absolute left-4 top-5 h-2 w-2 rounded-full ${CONDITION_DOT_CLASSES[entry.condition]}`}
+                    />
+                    <header className="flex flex-wrap items-center gap-3">
+                      <time className="text-xs text-gray-500">{entry.createdAt}</time>
+                      <span
+                        className={`ml-auto inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold text-white ${CONDITION_BADGE_CLASSES[entry.condition]}`}
+                      >
+                        {displayCondition} {CONDITION_LABEL[entry.condition]}
+                      </span>
+                    </header>
+                    <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-gray-800">
+                      {entry.memo}
+                    </p>
+                    {entry.tags.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-indigo-600">
+                        {entry.tags.map((tag) => (
+                          <span
+                            key={tag.id}
+                            className="rounded-full bg-indigo-50 px-2 py-0.5"
+                          >
+                            #{tag.name}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </article>
+                );
+              })}
+              {timelineEntries.length === 0 && (
+                <div className="self-center rounded-lg border border-dashed border-gray-300 px-6 py-6 text-center text-sm text-gray-500">
+                  条件に一致するトラックがありません。
+                </div>
+              )}
             </div>
-            <div>
-              <p className="text-xs font-semibold text-gray-500">最近使ったタグ</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {recentTags.map((tag) => (
+          </div>
+        </section>
+
+        <section className="mt-auto rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+          <header className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-base font-semibold text-gray-900">新規トラック</h2>
+            <div className="flex flex-wrap items-center gap-2">
+              {([-2, -1, 0, 1, 2] as TrackEntry["condition"][]).map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setComposerCondition(value)}
+                  className={`rounded-full px-3 py-1 text-xs transition ${
+                    composerCondition === value
+                      ? "bg-indigo-600 text-white"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  }`}
+                >
+                  {value}
+                </button>
+              ))}
+            </div>
+          </header>
+          <div className="mt-3 space-y-3">
+            <div className="relative">
+              <textarea
+                value={draft}
+                onChange={(event) => setDraft(event.target.value)}
+                className="h-32 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring"
+                placeholder="メモや気づきを記録。@ からタグを呼び出せます..."
+              />
+              <div className="pointer-events-none absolute inset-x-3 bottom-3 flex items-center justify-between text-xs text-gray-400">
+                <span>Shift + Enter で改行</span>
+                <span>{draft.length}/1000</span>
+              </div>
+            </div>
+            {selectedMentions.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {selectedMentions.map((tag) => (
                   <button
                     key={tag.id}
                     type="button"
-                    onClick={() => toggleTag(tag.id)}
-                    className={`rounded-full border px-3 py-1 text-xs transition ${
-                      selectedTagIds.includes(tag.id)
-                        ? "border-indigo-500 bg-indigo-100 text-indigo-700"
-                        : "border-gray-200 bg-white text-gray-500 hover:bg-gray-100"
-                    }`}
+                    onClick={() => removeMention(tag.id)}
+                    className="flex items-center gap-1 rounded-full bg-indigo-50 px-3 py-1 text-xs text-indigo-600"
                   >
-                    {tag.name}
+                    @{tag.name}
+                    <span className="text-[10px] text-indigo-400">×</span>
                   </button>
                 ))}
               </div>
+            )}
+            <div className="relative">
+              <div className="flex items-center justify-between text-xs text-gray-500">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    ref={mentionButtonRef}
+                    onClick={() => setMentionOpen((prev) => !prev)}
+                    className="rounded-full border border-gray-200 px-3 py-1 text-xs text-gray-600 hover:border-indigo-300 hover:text-indigo-600"
+                  >
+                    @ タグを挿入
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-full border border-gray-200 px-3 py-1 text-xs text-gray-400"
+                  >
+                    添付
+                  </button>
+                </div>
+              </div>
+              {mentionOpen && (
+                <div
+                  ref={mentionPopoverRef}
+                  className="absolute bottom-full left-0 mb-2 w-72 rounded-lg border border-gray-200 bg-white p-3 shadow-lg"
+                >
+                  <p className="text-[11px] font-semibold text-gray-500">
+                    タグを選択
+                  </p>
+                  <div className="mt-2 max-h-48 space-y-2 overflow-y-auto">
+                    {categories.map((category) => (
+                      <div key={category.id} className="space-y-1">
+                        <p className="text-[11px] text-gray-400">{category.name}</p>
+                        <div className="flex flex-wrap gap-2">
+                          {category.tags.map((tag) => (
+                            <button
+                              key={tag.id}
+                              type="button"
+                              onClick={() => addMention(tag)}
+                              className="rounded-full border border-gray-200 px-2 py-1 text-[11px] text-gray-600 hover:border-indigo-300 hover:text-indigo-600"
+                            >
+                              @{tag.name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
-            <div className="flex justify-end gap-2">
+            <div className="flex items-center justify-end gap-3">
               <button
                 type="button"
-                className="rounded border border-gray-300 px-4 py-2 text-sm text-gray-600"
-              >
-                クリア
-              </button>
-              <button
-                type="submit"
                 className="rounded bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm"
               >
                 記録する
               </button>
             </div>
-          </form>
-        </section>
-
-        <section className="flex flex-col gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold text-gray-900">タイムライン</h2>
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-2">
-                {([-2, -1, 0, 1, 2] as TrackEntry["condition"][]).map((value) => (
-                  <label
-                    key={value}
-                    className="flex items-center gap-1 text-xs text-gray-600"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={conditionFilter.includes(value)}
-                      onChange={() => toggleCondition(value)}
-                      className="h-3 w-3 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                    />
-                    {value}
-                  </label>
-                ))}
-              </div>
-              <div className="flex items-center gap-2 text-xs text-gray-500">
-                <input
-                  type="search"
-                  placeholder="メモ検索..."
-                  className="rounded-lg border border-gray-200 px-3 py-1.5 focus:border-indigo-500 focus:outline-none focus:ring"
-                />
-              </div>
-            </div>
-          </div>
-          <div className="space-y-3">
-            {filteredEntries.map((entry) => (
-              <article
-                key={entry.id}
-                className="rounded-lg border border-gray-100 bg-white p-4 shadow-sm"
-              >
-                <header className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 text-sm text-gray-500">
-                    <time>{entry.createdAt}</time>
-                    <span className="text-xs text-gray-400">
-                      更新 {entry.updatedAt}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold text-white ${CONDITION_COLORS[entry.condition]}`}
-                    >
-                      {entry.condition} {CONDITION_LABEL[entry.condition]}
-                    </span>
-                    <div className="flex gap-2 text-xs text-indigo-600">
-                      <button type="button">編集</button>
-                      <button type="button">削除</button>
-                      <button type="button">タグ管理</button>
-                    </div>
-                  </div>
-                </header>
-                <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-gray-800">
-                  {entry.memo}
-                </p>
-                <footer className="mt-3 flex flex-wrap gap-2">
-                  {entry.tags.map((tag) => (
-                    <span
-                      key={tag.id}
-                      className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs text-gray-600"
-                    >
-                      {tag.name}
-                    </span>
-                  ))}
-                </footer>
-              </article>
-            ))}
-            {filteredEntries.length === 0 && (
-              <div className="rounded-lg border border-dashed border-gray-300 px-6 py-10 text-center text-sm text-gray-500">
-                条件に一致するトラックがありません。フィルタを調整してください。
-              </div>
-            )}
-          </div>
-          <div className="flex items-center justify-center">
-            <button
-              type="button"
-              className="rounded-full border border-gray-300 px-4 py-2 text-sm text-gray-600"
-            >
-              過去のトラックを読み込む
-            </button>
           </div>
         </section>
       </main>
