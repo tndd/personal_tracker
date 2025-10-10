@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AppHeader } from "../AppHeader";
 import type { AppTab } from "../AppHeader";
+import { AppTabNav } from "../AppTabNav";
 
 export interface TrackTag {
   id: string;
@@ -79,6 +79,11 @@ export function TrackPrototype({
   const [activeSection, setActiveSection] = useState<"search" | "inbox" | "saved">("search");
   const [showSearchPanel, setShowSearchPanel] = useState(false);
 
+  // 無限スクロール用の状態
+  const [displayCount, setDisplayCount] = useState(20);
+  const timelineRef = useRef<HTMLDivElement | null>(null);
+  const loadingRef = useRef<HTMLDivElement | null>(null);
+
   const filteredEntries = useMemo(() => {
     return entries.filter((entry) => {
       const matchCondition = conditionFilter.includes(entry.condition);
@@ -92,6 +97,34 @@ export function TrackPrototype({
   const timelineEntries = useMemo(() => {
     return [...filteredEntries].reverse();
   }, [filteredEntries]);
+
+  // 表示するエントリー（無限スクロール用に制限）
+  const displayedEntries = useMemo(() => {
+    return timelineEntries.slice(0, displayCount);
+  }, [timelineEntries, displayCount]);
+
+  // 無限スクロールの監視
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const target = entries[0];
+        if (target.isIntersecting && displayCount < timelineEntries.length) {
+          setDisplayCount((prev) => Math.min(prev + 20, timelineEntries.length));
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (loadingRef.current) {
+      observer.observe(loadingRef.current);
+    }
+
+    return () => {
+      if (loadingRef.current) {
+        observer.unobserve(loadingRef.current);
+      }
+    };
+  }, [displayCount, timelineEntries.length]);
 
   const toggleTag = (tagId: string) => {
     setSelectedTagIds((prev) =>
@@ -159,11 +192,15 @@ export function TrackPrototype({
   }, [mentionOpen]);
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <AppHeader activeTab={activeTab} />
-      <main className="flex h-[calc(100vh-64px)] gap-0">
-        {/* 左サイドバー */}
-        <aside className="w-60 shrink-0 border-r border-gray-200 bg-white">
+    <div className="flex min-h-screen bg-slate-50">
+      {/* 左端のタブナビゲーション */}
+      <AppTabNav activeTab={activeTab} />
+
+      {/* メインコンテンツ */}
+      <div className="flex flex-1 flex-col">
+        <main className="flex h-screen gap-0">
+          {/* 左サイドバー */}
+          <aside className="w-60 shrink-0 border-r border-gray-200 bg-white">
           <div className="flex flex-col gap-1 p-3">
             {/* Search */}
             <button
@@ -313,9 +350,9 @@ export function TrackPrototype({
           )}
 
           {/* タイムライン */}
-          <div className="flex-1 overflow-y-auto px-4 pb-4 pt-4">
+          <div ref={timelineRef} className="flex-1 overflow-y-auto px-4 pb-4 pt-4">
             <div className="flex flex-col gap-4">
-              {timelineEntries.map((entry) => {
+              {displayedEntries.map((entry) => {
                 const displayCondition =
                   entry.condition > 0 ? `+${entry.condition}` : `${entry.condition}`;
                 return (
@@ -352,6 +389,17 @@ export function TrackPrototype({
                   </article>
                 );
               })}
+
+              {/* ローディングインジケーター */}
+              {displayCount < timelineEntries.length && (
+                <div
+                  ref={loadingRef}
+                  className="flex items-center justify-center py-4"
+                >
+                  <div className="text-sm text-gray-500">読み込み中...</div>
+                </div>
+              )}
+
               {timelineEntries.length === 0 && (
                 <div className="self-center rounded-lg border border-dashed border-gray-300 px-6 py-6 text-center text-sm text-gray-500">
                   条件に一致するトラックがありません。
@@ -467,7 +515,8 @@ export function TrackPrototype({
             </div>
           </div>
         </section>
-      </main>
+        </main>
+      </div>
     </div>
   );
 }

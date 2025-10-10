@@ -49,59 +49,67 @@ const sampleCategories = [
   },
 ];
 
+// サンプルデータ生成用のヘルパー関数
+const generateEntries = (count: number) => {
+  const memos = [
+    "朝に服薬を実施。体調はまずまず。",
+    "午後から頭痛が悪化したので休息。",
+    "夜は軽いストレッチのみ。",
+    "ジョギングを30分実施。気分爽快。",
+    "仕事が忙しく疲労感が強い。",
+    "よく眠れた。朝から調子が良い。",
+    "ストレスを感じる一日だった。",
+    "趣味の時間を取れてリフレッシュ。",
+    "体調不良で早めに休息。",
+    "友人と会って楽しく過ごせた。",
+    "集中力が続かず作業が進まない。",
+    "瞑想とヨガで心身ともに整った。",
+    "睡眠不足で頭が重い。",
+    "美味しい食事で満足感が高い。",
+    "天気が良くて気持ちが上向き。",
+  ];
+
+  const conditions: Array<-2 | -1 | 0 | 1 | 2> = [-2, -1, 0, 1, 2];
+  const entries = [];
+  const baseDate = new Date("2025-10-09 20:00");
+
+  for (let i = 0; i < count; i++) {
+    const date = new Date(baseDate.getTime() - i * 3600000 * 2); // 2時間ごと
+    const condition = conditions[Math.floor(Math.random() * conditions.length)];
+    const memo = memos[Math.floor(Math.random() * memos.length)];
+    const tagCount = Math.floor(Math.random() * 3); // 0-2個のタグ
+    const selectedTags = [];
+
+    for (let j = 0; j < tagCount; j++) {
+      const tag = sampleTags[Math.floor(Math.random() * sampleTags.length)];
+      if (!selectedTags.find(t => t.id === tag.id)) {
+        selectedTags.push(tag);
+      }
+    }
+
+    entries.push({
+      id: `track-${i + 1}`,
+      memo,
+      condition,
+      createdAt: date.toISOString().slice(0, 16).replace("T", " "),
+      updatedAt: date.toISOString().slice(0, 16).replace("T", " "),
+      tags: selectedTags,
+    });
+  }
+
+  return entries;
+};
+
 export const Default: Story = {
   args: {
     categories: sampleCategories,
-    entries: [
-      {
-        id: "track-1",
-        memo: "朝に服薬を実施。体調はまずまず。\nメモの複数行表示も確認。",
-        condition: 1,
-        createdAt: "2025-10-09 07:10",
-        updatedAt: "2025-10-09 07:12",
-        tags: [sampleTags[0], sampleTags[3]],
-      },
-      {
-        id: "track-2",
-        memo: "午後から頭痛が悪化したので休息。タグ選択で色分けを確認。",
-        condition: -1,
-        createdAt: "2025-10-08 15:30",
-        updatedAt: "2025-10-08 15:30",
-        tags: [sampleTags[2]],
-      },
-      {
-        id: "track-3",
-        memo: "夜は軽いストレッチのみ。コンディションはゼロ付近。",
-        condition: 0,
-        createdAt: "2025-10-07 22:05",
-        updatedAt: "2025-10-07 22:05",
-        tags: [sampleTags[1]],
-      },
-    ],
+    entries: generateEntries(50),
   },
 };
 
 export const WithMoreEntries: Story = {
   args: {
-    ...Default.args,
-    entries: [
-      ...(Default.args?.entries || []),
-      {
-        id: "track-4",
-        memo: "調子が悪い一日だった。",
-        condition: -2,
-        createdAt: "2025-10-06 20:00",
-        updatedAt: "2025-10-06 20:00",
-        tags: [sampleTags[2]],
-      },
-      {
-        id: "track-5",
-        memo: "とても良い気分で過ごせた!",
-        condition: 2,
-        createdAt: "2025-10-05 18:30",
-        updatedAt: "2025-10-05 18:30",
-        tags: [sampleTags[3]],
-      },
-    ],
+    categories: sampleCategories,
+    entries: generateEntries(100),
   },
 };
