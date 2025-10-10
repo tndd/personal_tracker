@@ -95,21 +95,49 @@ export function TrackPrototype({
   }, [conditionFilter, entries, selectedTagIds]);
 
   const timelineEntries = useMemo(() => {
-    return [...filteredEntries].reverse();
+    // 最新のものが下になるよう、reverseしない（元の順序のまま）
+    return filteredEntries;
   }, [filteredEntries]);
 
   // 表示するエントリー（無限スクロール用に制限）
+  // 最新20件から始める（配列の最後から取得）
   const displayedEntries = useMemo(() => {
-    return timelineEntries.slice(0, displayCount);
+    const startIndex = Math.max(0, timelineEntries.length - displayCount);
+    return timelineEntries.slice(startIndex);
   }, [timelineEntries, displayCount]);
 
-  // 無限スクロールの監視
+  // 初回表示時にスクロール位置を最下部に設定
+  useEffect(() => {
+    if (timelineRef.current) {
+      timelineRef.current.scrollTop = timelineRef.current.scrollHeight;
+    }
+  }, []);
+
+  // 無限スクロールの監視（上方向にスクロール）
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
         const target = entries[0];
         if (target.isIntersecting && displayCount < timelineEntries.length) {
-          setDisplayCount((prev) => Math.min(prev + 20, timelineEntries.length));
+          // スクロール位置を保存
+          const scrollContainer = timelineRef.current;
+          const previousScrollHeight = scrollContainer?.scrollHeight || 0;
+          const previousScrollTop = scrollContainer?.scrollTop || 0;
+
+          setDisplayCount((prev) => {
+            const newCount = Math.min(prev + 20, timelineEntries.length);
+
+            // データ追加後にスクロール位置を調整
+            setTimeout(() => {
+              if (scrollContainer) {
+                const newScrollHeight = scrollContainer.scrollHeight;
+                const heightDifference = newScrollHeight - previousScrollHeight;
+                scrollContainer.scrollTop = previousScrollTop + heightDifference;
+              }
+            }, 0);
+
+            return newCount;
+          });
         }
       },
       { threshold: 0.1 }
@@ -352,6 +380,16 @@ export function TrackPrototype({
           {/* タイムライン */}
           <div ref={timelineRef} className="flex-1 overflow-y-auto px-4 pb-4 pt-4">
             <div className="flex flex-col gap-4">
+              {/* ローディングインジケーター（上部） */}
+              {displayCount < timelineEntries.length && (
+                <div
+                  ref={loadingRef}
+                  className="flex items-center justify-center py-4"
+                >
+                  <div className="text-sm text-gray-500">読み込み中...</div>
+                </div>
+              )}
+
               {displayedEntries.map((entry) => {
                 const displayCondition =
                   entry.condition > 0 ? `+${entry.condition}` : `${entry.condition}`;
@@ -389,16 +427,6 @@ export function TrackPrototype({
                   </article>
                 );
               })}
-
-              {/* ローディングインジケーター */}
-              {displayCount < timelineEntries.length && (
-                <div
-                  ref={loadingRef}
-                  className="flex items-center justify-center py-4"
-                >
-                  <div className="text-sm text-gray-500">読み込み中...</div>
-                </div>
-              )}
 
               {timelineEntries.length === 0 && (
                 <div className="self-center rounded-lg border border-dashed border-gray-300 px-6 py-6 text-center text-sm text-gray-500">
