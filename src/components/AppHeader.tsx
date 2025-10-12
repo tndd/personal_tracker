@@ -1,6 +1,5 @@
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
-import clsx from "clsx";
 
 export type AppTab = "track" | "daily" | "analysis" | "tag";
 
