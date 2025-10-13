@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { DailyCard } from "@/components/daily/daily-card";
+import { CalendarView } from "@/components/daily/calendar-view";
 import { ArrowUp, LayoutGrid, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -36,7 +37,7 @@ const mockDailies = [
 
 export default function DailyPage() {
   const [dailies] = useState(mockDailies);
-  const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
+  const [viewMode, setViewMode] = useState<"list" | "calendar">("calendar");
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -50,15 +51,6 @@ export default function DailyPage() {
         {/* ビュー切り替え（モック） */}
         <div className="flex gap-1 rounded-lg border p-1">
           <Button
-            variant={viewMode === "list" ? "default" : "ghost"}
-            size="sm"
-            onClick={() => setViewMode("list")}
-            className="gap-2"
-          >
-            <List className="h-4 w-4" />
-            リスト
-          </Button>
-          <Button
             variant={viewMode === "calendar" ? "default" : "ghost"}
             size="sm"
             onClick={() => setViewMode("calendar")}
@@ -66,6 +58,15 @@ export default function DailyPage() {
           >
             <LayoutGrid className="h-4 w-4" />
             カレンダー
+          </Button>
+          <Button
+            variant={viewMode === "list" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setViewMode("list")}
+            className="gap-2"
+          >
+            <List className="h-4 w-4" />
+            リスト
           </Button>
         </div>
       </div>
@@ -97,9 +98,10 @@ export default function DailyPage() {
           </div>
         </>
       ) : (
-        <div className="flex h-96 items-center justify-center rounded-lg border-2 border-dashed">
-          <p className="text-gray-400">カレンダービュー（未実装）</p>
-        </div>
+        <CalendarView
+          dailies={dailies}
+          onEdit={(date) => console.log("Edit", date)}
+        />
       )}
     </div>
   );

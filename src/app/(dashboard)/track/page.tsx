@@ -5,14 +5,14 @@ import { TrackForm } from "@/components/track/track-form";
 import { TrackCard } from "@/components/track/track-card";
 import { ArrowUp } from "lucide-react";
 
-// モックデータ
+// モックデータ（タグ形式を更新）
 const mockTracks = [
   {
     id: "1",
     memo: "朝散歩をした。気分が良い。",
     condition: 1,
     tags: [
-      { id: "t1", name: "運動", color: "#10B981" },
+      { id: "tag-7", name: "散歩", categoryName: "運動", color: "#10B981" },
     ],
     createdAt: new Date().toISOString(),
   },
@@ -21,8 +21,7 @@ const mockTracks = [
     memo: "昼食後に少し頭痛がする",
     condition: -1,
     tags: [
-      { id: "t2", name: "症状", color: "#EF4444" },
-      { id: "t3", name: "頭痛", color: "#F59E0B" },
+      { id: "tag-4", name: "頭痛", categoryName: "症状", color: "#EF4444" },
     ],
     createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
   },
@@ -31,8 +30,7 @@ const mockTracks = [
     memo: "デパスを服用",
     condition: 0,
     tags: [
-      { id: "t4", name: "服薬", color: "#3B82F6" },
-      { id: "t5", name: "デパス", color: "#6366F1" },
+      { id: "tag-1", name: "デパス", categoryName: "服薬", color: "#3B82F6" },
     ],
     createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
   },
@@ -40,9 +38,7 @@ const mockTracks = [
     id: "4",
     memo: "夜ぐっすり眠れた",
     condition: 2,
-    tags: [
-      { id: "t6", name: "睡眠", color: "#8B5CF6" },
-    ],
+    tags: [],
     createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
   },
 ];

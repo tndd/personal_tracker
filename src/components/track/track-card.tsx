@@ -4,18 +4,19 @@ import { ja } from "date-fns/locale";
 import { Edit2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-// コンディションの表示用
+// コンディションの表示用（色ベース）
 const conditionConfig = {
-  2: { emoji: "😄", label: "+2", color: "text-green-600" },
-  1: { emoji: "🙂", label: "+1", color: "text-green-500" },
-  0: { emoji: "😐", label: "±0", color: "text-gray-500" },
-  "-1": { emoji: "😟", label: "-1", color: "text-orange-500" },
-  "-2": { emoji: "😞", label: "-2", color: "text-red-600" },
+  2: { label: "+2", bgColor: "bg-green-600", textColor: "text-green-600" },
+  1: { label: "+1", bgColor: "bg-green-400", textColor: "text-green-400" },
+  0: { label: "±0", bgColor: "bg-gray-400", textColor: "text-gray-500" },
+  "-1": { label: "-1", bgColor: "bg-orange-400", textColor: "text-orange-500" },
+  "-2": { label: "-2", bgColor: "bg-red-600", textColor: "text-red-600" },
 } as const;
 
 interface Tag {
   id: string;
   name: string;
+  categoryName: string;
   color: string;
 }
 
@@ -49,8 +50,8 @@ export function TrackCard({
             <div className="flex items-center gap-2 text-sm text-gray-500">
               <time>{format(date, "HH:mm", { locale: ja })}</time>
               <span className="text-gray-300">•</span>
-              <span className={`flex items-center gap-1 font-medium ${config.color}`}>
-                <span>{config.emoji}</span>
+              <span className={`flex items-center gap-1.5 font-medium ${config.textColor}`}>
+                <span className={`h-4 w-4 rounded-full ${config.bgColor}`} />
                 <span>{config.label}</span>
               </span>
             </div>
@@ -72,7 +73,7 @@ export function TrackCard({
                       color: tag.color,
                     }}
                   >
-                    {tag.name}
+                    {tag.categoryName}/{tag.name}
                   </span>
                 ))}
               </div>

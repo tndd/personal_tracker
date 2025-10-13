@@ -1,27 +1,44 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Send } from "lucide-react";
+import { Send, Plus, X } from "lucide-react";
+import { TagSelectorPopup } from "./tag-selector-popup";
+import { ConditionSelectorPopup } from "./condition-selector-popup";
 
-// コンディションの選択肢
-const conditionOptions = [
-  { value: -2, emoji: "😞", label: "-2" },
-  { value: -1, emoji: "😟", label: "-1" },
-  { value: 0, emoji: "😐", label: "±0" },
-  { value: 1, emoji: "🙂", label: "+1" },
-  { value: 2, emoji: "😄", label: "+2" },
-];
+interface Tag {
+  id: string;
+  name: string;
+  categoryId: string;
+  categoryName: string;
+  color: string;
+}
 
 interface TrackFormProps {
   onSubmit?: (data: { memo: string; condition: number; tagIds: string[] }) => void;
 }
 
+const conditionConfig = {
+  2: { label: "+2", bgColor: "bg-green-600" },
+  1: { label: "+1", bgColor: "bg-green-400" },
+  0: { label: "±0", bgColor: "bg-gray-400" },
+  "-1": { label: "-1", bgColor: "bg-orange-400" },
+  "-2": { label: "-2", bgColor: "bg-red-600" },
+} as const;
+
 export function TrackForm({ onSubmit }: TrackFormProps) {
   const [memo, setMemo] = useState("");
   const [condition, setCondition] = useState(0);
+  const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
+  const [showTagPopup, setShowTagPopup] = useState(false);
+  const [showConditionPopup, setShowConditionPopup] = useState(false);
+
+  const tagButtonRef = useRef<HTMLButtonElement>(null);
+  const conditionButtonRef = useRef<HTMLButtonElement>(null);
+
+  const conditionInfo = conditionConfig[condition as keyof typeof conditionConfig];
 
   const handleSubmit = () => {
     if (!memo.trim()) return;
@@ -29,12 +46,13 @@ export function TrackForm({ onSubmit }: TrackFormProps) {
     onSubmit?.({
       memo: memo.trim(),
       condition,
-      tagIds: [], // TODO: タグ選択機能
+      tagIds: selectedTags.map((tag) => tag.id),
     });
 
     // リセット
     setMemo("");
     setCondition(0);
+    setSelectedTags([]);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -43,6 +61,35 @@ export function TrackForm({ onSubmit }: TrackFormProps) {
       e.preventDefault();
       handleSubmit();
     }
+  };
+
+  const handleTagSelect = (tag: Tag) => {
+    // 同じタグが既に追加されていなければ追加
+    if (!selectedTags.find((t) => t.id === tag.id)) {
+      setSelectedTags([...selectedTags, tag]);
+    }
+  };
+
+  const handleTagRemove = (tagId: string) => {
+    setSelectedTags(selectedTags.filter((t) => t.id !== tagId));
+  };
+
+  const getTagPopupPosition = () => {
+    if (!tagButtonRef.current) return { top: 0, left: 0 };
+    const rect = tagButtonRef.current.getBoundingClientRect();
+    return {
+      top: rect.bottom + 8,
+      left: rect.left,
+    };
+  };
+
+  const getConditionPopupPosition = () => {
+    if (!conditionButtonRef.current) return { top: 0, right: 0 };
+    const rect = conditionButtonRef.current.getBoundingClientRect();
+    return {
+      top: rect.bottom + 8,
+      right: window.innerWidth - rect.right,
+    };
   };
 
   return (
@@ -59,35 +106,83 @@ export function TrackForm({ onSubmit }: TrackFormProps) {
             maxLength={1000}
           />
 
-          {/* コンディション選択 */}
-          <div className="flex items-center justify-between">
-            <div className="flex gap-2">
-              {conditionOptions.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => setCondition(option.value)}
-                  className={`flex h-10 w-10 items-center justify-center rounded-md border-2 transition-all ${
-                    condition === option.value
-                      ? "border-blue-600 bg-blue-50"
-                      : "border-gray-200 hover:border-gray-300"
-                  }`}
-                  title={option.label}
+          {/* 下部コントロール */}
+          <div className="flex items-center justify-between gap-4">
+            {/* 左側: タグエリア */}
+            <div className="flex-1 flex items-center gap-2 flex-wrap relative">
+              {/* タグ追加ボタン */}
+              <button
+                ref={tagButtonRef}
+                onClick={() => setShowTagPopup(!showTagPopup)}
+                className="flex h-8 w-8 items-center justify-center rounded-md border-2 border-dashed border-gray-300 hover:border-gray-400 hover:bg-gray-50 transition-colors"
+                title="タグ追加"
+              >
+                <Plus className="h-4 w-4 text-gray-500" />
+              </button>
+
+              {/* 選択済みタグ */}
+              {selectedTags.map((tag) => (
+                <span
+                  key={tag.id}
+                  className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-sm font-medium"
+                  style={{
+                    backgroundColor: `${tag.color}20`,
+                    color: tag.color,
+                  }}
                 >
-                  <span className="text-lg">{option.emoji}</span>
-                </button>
+                  {tag.categoryName}/{tag.name}
+                  <button
+                    onClick={() => handleTagRemove(tag.id)}
+                    className="hover:opacity-70"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
               ))}
+
+              {/* タグ選択ポップアップ */}
+              {showTagPopup && (
+                <TagSelectorPopup
+                  onSelect={handleTagSelect}
+                  onClose={() => setShowTagPopup(false)}
+                  position={getTagPopupPosition()}
+                />
+              )}
             </div>
 
-            {/* 送信ボタン */}
-            <Button
-              onClick={handleSubmit}
-              disabled={!memo.trim()}
-              className="gap-2"
-            >
-              <Send className="h-4 w-4" />
-              記録
-            </Button>
+            {/* 右側: コンディション + 送信ボタン */}
+            <div className="flex items-center gap-2">
+              {/* コンディションボタン */}
+              <button
+                ref={conditionButtonRef}
+                onClick={() => setShowConditionPopup(!showConditionPopup)}
+                className="flex items-center gap-2 h-10 px-3 rounded-md border-2 border-gray-300 hover:border-gray-400 hover:bg-gray-50 transition-colors"
+                title="コンディション選択"
+              >
+                <span className={`h-5 w-5 rounded-full ${conditionInfo.bgColor}`} />
+                <span className="text-sm font-medium">{conditionInfo.label}</span>
+              </button>
+
+              {/* コンディション選択ポップアップ */}
+              {showConditionPopup && (
+                <ConditionSelectorPopup
+                  currentCondition={condition}
+                  onSelect={setCondition}
+                  onClose={() => setShowConditionPopup(false)}
+                  position={getConditionPopupPosition()}
+                />
+              )}
+
+              {/* 送信ボタン */}
+              <Button
+                onClick={handleSubmit}
+                disabled={!memo.trim()}
+                className="gap-2"
+              >
+                <Send className="h-4 w-4" />
+                記録
+              </Button>
+            </div>
           </div>
 
           {/* ヒント */}

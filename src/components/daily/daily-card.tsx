@@ -4,13 +4,13 @@ import { ja } from "date-fns/locale";
 import { Edit2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-// コンディションの表示用
+// コンディションの表示用（色ベース）
 const conditionConfig = {
-  2: { emoji: "😄", label: "+2", color: "text-green-600" },
-  1: { emoji: "🙂", label: "+1", color: "text-green-500" },
-  0: { emoji: "😐", label: "±0", color: "text-gray-500" },
-  "-1": { emoji: "😟", label: "-1", color: "text-orange-500" },
-  "-2": { emoji: "😞", label: "-2", color: "text-red-600" },
+  2: { label: "+2", bgColor: "bg-green-600", textColor: "text-green-600" },
+  1: { label: "+1", bgColor: "bg-green-400", textColor: "text-green-400" },
+  0: { label: "±0", bgColor: "bg-gray-400", textColor: "text-gray-500" },
+  "-1": { label: "-1", bgColor: "bg-orange-400", textColor: "text-orange-500" },
+  "-2": { label: "-2", bgColor: "bg-red-600", textColor: "text-red-600" },
 } as const;
 
 interface DailyCardProps {
@@ -31,8 +31,8 @@ export function DailyCard({ date, memo, condition, onEdit }: DailyCardProps) {
           {format(dateObj, "M月d日 (E)", { locale: ja })}
         </CardTitle>
         <div className="flex items-center gap-3">
-          <span className={`flex items-center gap-1 font-medium ${config.color}`}>
-            <span className="text-xl">{config.emoji}</span>
+          <span className={`flex items-center gap-2 font-medium ${config.textColor}`}>
+            <span className={`h-6 w-6 rounded-full ${config.bgColor}`} />
             <span className="text-sm">{config.label}</span>
           </span>
           <Button variant="ghost" size="icon" onClick={onEdit} className="h-8 w-8">
