@@ -59,12 +59,16 @@ export default function TrackPage() {
       createdAt: new Date().toISOString(),
     };
 
-    setTracks([newTrack, ...tracks]);
+    // 新しいトラックを配列の最後に追加（Slack風：新しいものが下）
+    setTracks([...tracks, newTrack]);
   };
 
   const handleDelete = (id: string) => {
     setTracks(tracks.filter((track) => track.id !== id));
   };
+
+  // Slack風：古いものが上、新しいものが下
+  const displayTracks = [...tracks].reverse();
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -74,9 +78,6 @@ export default function TrackPage() {
         <p className="mt-1 text-sm text-gray-500">日々の記録を残しましょう</p>
       </div>
 
-      {/* 新規作成フォーム */}
-      <TrackForm onSubmit={handleSubmit} />
-
       {/* 過去を読み込むボタン（モック） */}
       <div className="flex justify-center">
         <button className="flex items-center gap-2 rounded-md px-4 py-2 text-sm text-gray-500 hover:bg-gray-100 transition-colors">
@@ -85,9 +86,9 @@ export default function TrackPage() {
         </button>
       </div>
 
-      {/* トラック一覧 */}
+      {/* トラック一覧（上が古い、下が新しい） */}
       <div className="space-y-3">
-        {tracks.map((track) => (
+        {displayTracks.map((track) => (
           <TrackCard
             key={track.id}
             {...track}
@@ -97,10 +98,8 @@ export default function TrackPage() {
         ))}
       </div>
 
-      {/* 無限スクロール用のセンチネル（今後実装） */}
-      <div className="h-20 flex items-center justify-center text-sm text-gray-400">
-        これより古いトラックはありません
-      </div>
+      {/* 新規作成フォーム（Slack風に下部配置） */}
+      <TrackForm onSubmit={handleSubmit} />
     </div>
   );
 }
