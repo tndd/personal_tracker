@@ -4,6 +4,8 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronUp, Plus, Archive, Edit2 } from "lucide-react";
+import { TagFormDialog } from "@/components/tags/tag-form-dialog";
+import { CategoryFormDialog } from "@/components/tags/category-form-dialog";
 
 // モックデータ
 const mockCategories = [
@@ -44,6 +46,11 @@ export default function TagsPage() {
     new Set(categories.map((c) => c.id))
   );
 
+  // ダイアログの状態管理
+  const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
+  const [isTagDialogOpen, setIsTagDialogOpen] = useState(false);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+
   const toggleCategory = (categoryId: string) => {
     setExpandedCategories((prev) => {
       const next = new Set(prev);
@@ -77,6 +84,46 @@ export default function TagsPage() {
     );
   };
 
+  // カテゴリ追加ハンドラー
+  const handleAddCategory = (data: { name: string; color: string }) => {
+    const newCategory = {
+      id: `cat-${Date.now()}`,
+      name: data.name,
+      color: data.color,
+      tags: [],
+    };
+    setCategories((prev) => [...prev, newCategory]);
+    setExpandedCategories((prev) => new Set([...prev, newCategory.id]));
+  };
+
+  // タグ追加ダイアログを開く
+  const openTagDialog = (categoryId: string) => {
+    setSelectedCategoryId(categoryId);
+    setIsTagDialogOpen(true);
+  };
+
+  // タグ追加ハンドラー
+  const handleAddTag = (tagName: string) => {
+    if (!selectedCategoryId) return;
+
+    setCategories((prev) =>
+      prev.map((cat) => {
+        if (cat.id !== selectedCategoryId) return cat;
+
+        const newTag = {
+          id: `tag-${Date.now()}`,
+          name: tagName,
+          sortOrder: cat.tags.length,
+        };
+
+        return {
+          ...cat,
+          tags: [...cat.tags, newTag],
+        };
+      })
+    );
+  };
+
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       {/* ヘッダー */}
@@ -86,7 +133,7 @@ export default function TagsPage() {
           <p className="mt-1 text-sm text-gray-500">カテゴリとタグの管理</p>
         </div>
 
-        <Button className="gap-2">
+        <Button className="gap-2" onClick={() => setIsCategoryDialogOpen(true)}>
           <Plus className="h-4 w-4" />
           カテゴリ追加
         </Button>
@@ -179,7 +226,15 @@ export default function TagsPage() {
                   ))}
 
                   {/* タグ追加ボタン */}
-                  <Button variant="secondary" size="sm" className="w-full gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="w-full gap-2"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openTagDialog(category.id);
+                    }}
+                  >
                     <Plus className="h-4 w-4" />
                     タグ追加
                   </Button>
@@ -189,6 +244,31 @@ export default function TagsPage() {
           );
         })}
       </div>
+
+      {/* カテゴリ追加ダイアログ */}
+      <CategoryFormDialog
+        isOpen={isCategoryDialogOpen}
+        onClose={() => setIsCategoryDialogOpen(false)}
+        onSubmit={handleAddCategory}
+      />
+
+      {/* タグ追加ダイアログ */}
+      {selectedCategoryId && (
+        <TagFormDialog
+          isOpen={isTagDialogOpen}
+          onClose={() => {
+            setIsTagDialogOpen(false);
+            setSelectedCategoryId(null);
+          }}
+          onSubmit={handleAddTag}
+          categoryName={
+            categories.find((c) => c.id === selectedCategoryId)?.name || ""
+          }
+          categoryColor={
+            categories.find((c) => c.id === selectedCategoryId)?.color || "#3B82F6"
+          }
+        />
+      )}
     </div>
   );
 }
