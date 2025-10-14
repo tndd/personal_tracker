@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { ChevronLeft } from "lucide-react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 
 // モックデータ（後でAPIから取得）
 const mockCategories = [
@@ -53,27 +52,32 @@ interface TagSelectorPopupProps {
 }
 
 export function TagSelectorPopup({ onSelect, onClose, position }: TagSelectorPopupProps) {
-  const [selectedCategory, setSelectedCategory] = useState<typeof mockCategories[0] | null>(null);
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
 
-  const handleCategorySelect = (category: typeof mockCategories[0]) => {
-    setSelectedCategory(category);
+  const toggleCategory = (categoryId: string) => {
+    setExpandedCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(categoryId)) {
+        next.delete(categoryId);
+      } else {
+        next.add(categoryId);
+      }
+      return next;
+    });
   };
 
-  const handleTagSelect = (tag: typeof mockCategories[0]["tags"][0]) => {
-    if (!selectedCategory) return;
-
+  const handleTagSelect = (
+    tag: typeof mockCategories[0]["tags"][0],
+    category: typeof mockCategories[0]
+  ) => {
     onSelect({
       id: tag.id,
       name: tag.name,
-      categoryId: selectedCategory.id,
-      categoryName: selectedCategory.name,
-      color: selectedCategory.color,
+      categoryId: category.id,
+      categoryName: category.name,
+      color: category.color,
     });
-    onClose();
-  };
-
-  const handleBack = () => {
-    setSelectedCategory(null);
+    // ポップアップは閉じずに選択を継続可能にする
   };
 
   return (
@@ -86,64 +90,64 @@ export function TagSelectorPopup({ onSelect, onClose, position }: TagSelectorPop
 
       {/* ポップアップ */}
       <Card
-        className="absolute z-50 w-64 max-h-80 overflow-y-auto shadow-lg"
+        className="absolute z-50 w-72 max-h-96 overflow-y-auto shadow-lg"
         style={{
           top: position?.top || 0,
           left: position?.left || 0,
         }}
       >
         <div className="p-2">
-          {selectedCategory ? (
-            // タグ一覧
-            <>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleBack}
-                className="w-full justify-start mb-2"
-              >
-                <ChevronLeft className="h-4 w-4 mr-2" />
-                {selectedCategory.name}
-              </Button>
-              <div className="space-y-1">
-                {selectedCategory.tags.map((tag) => (
+          {/* アコーディオン形式のカテゴリ一覧 */}
+          <div className="space-y-1">
+            {mockCategories.map((category) => {
+              const isExpanded = expandedCategories.has(category.id);
+
+              return (
+                <div key={category.id}>
+                  {/* カテゴリヘッダー */}
                   <button
-                    key={tag.id}
-                    onClick={() => handleTagSelect(tag)}
-                    className="w-full text-left px-3 py-2 rounded-md hover:bg-gray-100 transition-colors"
+                    onClick={() => toggleCategory(category.id)}
+                    className="w-full text-left px-3 py-2 rounded-md hover:bg-gray-100 transition-colors flex items-center gap-2"
                   >
-                    <span
-                      className="inline-flex items-center rounded-md px-2 py-1 text-sm font-medium"
-                      style={{
-                        backgroundColor: `${selectedCategory.color}20`,
-                        color: selectedCategory.color,
-                      }}
-                    >
-                      {tag.name}
-                    </span>
+                    {isExpanded ? (
+                      <ChevronDown className="h-4 w-4 text-gray-500" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4 text-gray-500" />
+                    )}
+                    <div
+                      className="h-3 w-3 rounded"
+                      style={{ backgroundColor: category.color }}
+                    />
+                    <span className="font-medium">{category.name}</span>
+                    <span className="text-sm text-gray-500">({category.tags.length})</span>
                   </button>
-                ))}
-              </div>
-            </>
-          ) : (
-            // カテゴリ一覧
-            <div className="space-y-1">
-              {mockCategories.map((category) => (
-                <button
-                  key={category.id}
-                  onClick={() => handleCategorySelect(category)}
-                  className="w-full text-left px-3 py-2 rounded-md hover:bg-gray-100 transition-colors flex items-center gap-2"
-                >
-                  <div
-                    className="h-3 w-3 rounded"
-                    style={{ backgroundColor: category.color }}
-                  />
-                  <span className="font-medium">{category.name}</span>
-                  <span className="text-sm text-gray-500">({category.tags.length})</span>
-                </button>
-              ))}
-            </div>
-          )}
+
+                  {/* タグ一覧（展開時のみ表示） */}
+                  {isExpanded && (
+                    <div className="ml-6 mt-1 space-y-1">
+                      {category.tags.map((tag) => (
+                        <button
+                          key={tag.id}
+                          onClick={() => handleTagSelect(tag, category)}
+                          className="w-full text-left px-3 py-1.5 rounded-md hover:bg-gray-50 transition-colors"
+                        >
+                          <span
+                            className="inline-flex items-center rounded-md px-2 py-0.5 text-sm font-medium"
+                            style={{
+                              backgroundColor: `${category.color}20`,
+                              color: category.color,
+                            }}
+                          >
+                            {tag.name}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       </Card>
     </>
