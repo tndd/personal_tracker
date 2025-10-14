@@ -3,8 +3,10 @@
 import { useState } from "react";
 import { DailyCard } from "@/components/daily/daily-card";
 import { CalendarView } from "@/components/daily/calendar-view";
-import { ArrowUp, LayoutGrid, List } from "lucide-react";
+import { DailyFormDialog } from "@/components/daily/daily-form-dialog";
+import { ArrowUp, LayoutGrid, List, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { format } from "date-fns";
 
 // モックデータ
 const mockDailies = [
@@ -36,8 +38,23 @@ const mockDailies = [
 ];
 
 export default function DailyPage() {
-  const [dailies] = useState(mockDailies);
+  const [dailies, setDailies] = useState(mockDailies);
   const [viewMode, setViewMode] = useState<"list" | "calendar">("calendar");
+  const [showFormDialog, setShowFormDialog] = useState(false);
+
+  // 今日の日付
+  const today = format(new Date(), "yyyy-MM-dd");
+  // 今日の日記が既に存在するかチェック
+  const hasTodayEntry = dailies.some((daily) => daily.date === today);
+
+  const handleSubmit = (data: { memo: string; condition: number }) => {
+    const newDaily = {
+      date: today,
+      memo: data.memo || null,
+      condition: data.condition,
+    };
+    setDailies([newDaily, ...dailies]);
+  };
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -103,6 +120,28 @@ export default function DailyPage() {
           onEdit={(date) => console.log("Edit", date)}
         />
       )}
+
+      {/* FAB（Floating Action Button） */}
+      <button
+        onClick={() => setShowFormDialog(true)}
+        disabled={hasTodayEntry}
+        className={`fixed bottom-8 right-8 flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-all ${
+          hasTodayEntry
+            ? "bg-gray-400 cursor-not-allowed"
+            : "bg-blue-600 hover:bg-blue-700 hover:scale-110"
+        }`}
+        title={hasTodayEntry ? "今日の日記は既に記録済みです" : "今日の日記を追加"}
+      >
+        <Plus className="h-6 w-6 text-white" />
+      </button>
+
+      {/* 日記作成ダイアログ */}
+      <DailyFormDialog
+        isOpen={showFormDialog}
+        onClose={() => setShowFormDialog(false)}
+        onSubmit={handleSubmit}
+        date={today}
+      />
     </div>
   );
 }
