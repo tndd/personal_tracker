@@ -117,37 +117,36 @@ export default function AnalysisPage() {
               {/* グラフ（レンジバー） */}
               <div className="overflow-x-auto">
                 <div className="relative min-w-max p-4">
-                  {/* プラス方向のエリア（上部） */}
-                  <div className="flex gap-1 h-20 items-end">
+                  {/* プラス方向のエリア（上部・固定40px） */}
+                  <div className="flex gap-1 h-10">
                     {conditionData.map((item) => (
-                      <div key={`${item.date}-${item.slot}-top`} className="w-8">
-                        {item.max > 0 && (
-                          <div
-                            className={
-                              item.max === 2 ? "bg-green-500" : "bg-green-400"
-                            }
-                            style={{ height: `${item.max * 20}px` }}
-                          />
-                        )}
+                      <div key={`${item.date}-${item.slot}-top`} className="w-8 flex flex-col-reverse">
+                        {/* +1の段（下段） */}
+                        <div className={`h-5 ${item.max >= 1 ? 'bg-green-400' : ''}`} />
+                        {/* +2の段（上段） */}
+                        <div className={`h-5 ${item.max >= 2 ? 'bg-green-500' : ''}`} />
                       </div>
                     ))}
                   </div>
 
-                  {/* 灰色の基準線（横一直線） */}
-                  <div className="w-full h-1 bg-gray-400" />
-
-                  {/* マイナス方向のエリア（下部） */}
-                  <div className="flex gap-1 h-20">
+                  {/* 0の段（基準線） */}
+                  <div className="flex gap-1 h-5">
                     {conditionData.map((item) => (
-                      <div key={`${item.date}-${item.slot}-bottom`} className="w-8">
-                        {item.min < 0 && (
-                          <div
-                            className={
-                              item.min === -2 ? "bg-red-500" : "bg-orange-400"
-                            }
-                            style={{ height: `${Math.abs(item.min) * 20}px` }}
-                          />
-                        )}
+                      <div
+                        key={`${item.date}-${item.slot}-zero`}
+                        className={`w-8 ${item.min <= 0 && item.max >= 0 ? 'bg-gray-400' : ''}`}
+                      />
+                    ))}
+                  </div>
+
+                  {/* マイナス方向のエリア（下部・固定40px） */}
+                  <div className="flex gap-1 h-10">
+                    {conditionData.map((item) => (
+                      <div key={`${item.date}-${item.slot}-bottom`} className="w-8 flex flex-col">
+                        {/* -1の段（上段） */}
+                        <div className={`h-5 ${item.min <= -1 ? 'bg-orange-400' : ''}`} />
+                        {/* -2の段（下段） */}
+                        <div className={`h-5 ${item.min <= -2 ? 'bg-red-500' : ''}`} />
                       </div>
                     ))}
                   </div>
