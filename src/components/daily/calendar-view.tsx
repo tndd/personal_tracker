@@ -94,31 +94,31 @@ export function CalendarView({ dailies, onEdit, onAddNew }: CalendarViewProps) {
   return (
     <div className="space-y-4">
       {/* 月の切り替えヘッダー */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <h2 className="text-lg sm:text-xl font-semibold">
           {format(currentMonth, "yyyy年M月", { locale: ja })}
         </h2>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 self-start sm:self-auto">
           <Button variant="outline" size="sm" onClick={handleToday}>
             今日
           </Button>
-          <Button variant="outline" size="icon" onClick={handlePrevMonth}>
+          <Button variant="outline" size="sm" onClick={handlePrevMonth}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="icon" onClick={handleNextMonth}>
+          <Button variant="outline" size="sm" onClick={handleNextMonth}>
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
       </div>
 
       {/* カレンダーグリッド */}
-      <div className="rounded-lg border bg-white">
+      <div className="rounded-lg border bg-white overflow-hidden">
         {/* 曜日ヘッダー */}
         <div className="grid grid-cols-7 border-b">
           {["日", "月", "火", "水", "木", "金", "土"].map((day, i) => (
             <div
               key={day}
-              className={`py-2 text-center text-sm font-semibold ${
+              className={`py-1 sm:py-2 text-center text-xs sm:text-sm font-semibold ${
                 i === 0 ? "text-red-600" : i === 6 ? "text-blue-600" : "text-gray-700"
               }`}
             >
@@ -149,16 +149,16 @@ export function CalendarView({ dailies, onEdit, onAddNew }: CalendarViewProps) {
                 onClick={() => handleDayClick(day)}
                 disabled={!isClickable}
                 className={`
-                  relative aspect-square border-b border-r p-2
+                  relative aspect-square border-b border-r p-1 sm:p-2
                   transition-colors
                   ${!isCurrentMonth ? "bg-gray-50" : ""}
                   ${isClickable ? "hover:bg-gray-100 cursor-pointer" : "cursor-default"}
-                  ${isToday ? "ring-2 ring-blue-500 ring-inset" : ""}
+                  ${isToday ? "ring-1 sm:ring-2 ring-blue-500 ring-inset" : ""}
                 `}
               >
                 {/* 日付 */}
                 <div
-                  className={`text-sm font-medium ${
+                  className={`text-xs sm:text-sm font-medium ${
                     !isCurrentMonth
                       ? "text-gray-400"
                       : isToday
@@ -171,9 +171,9 @@ export function CalendarView({ dailies, onEdit, onAddNew }: CalendarViewProps) {
 
                 {/* コンディション表示（色の丸） */}
                 {daily && (
-                  <div className="mt-1 flex justify-center">
+                  <div className="mt-0.5 sm:mt-1 flex justify-center">
                     <div
-                      className={`h-6 w-6 rounded-full ${
+                      className={`h-4 w-4 sm:h-6 sm:w-6 rounded-full ${
                         conditionColors[daily.condition as keyof typeof conditionColors]
                       }`}
                       title={`コンディション: ${daily.condition > 0 ? "+" : ""}${daily.condition}`}

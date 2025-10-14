@@ -181,17 +181,17 @@ export default function TrackPage() {
   return (
     <div className="mx-auto max-w-3xl h-full flex flex-col">
       {/* ヘッダー */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900">Track</h1>
+      <div className="mb-4 sm:mb-6">
+        <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">Track</h1>
         <p className="mt-1 text-sm text-gray-500">日々の記録を残しましょう</p>
       </div>
 
       {/* トラック一覧（スクロール可能） */}
       <div
         ref={containerRef}
-        className="flex-1 overflow-y-auto mb-6 pr-2"
+        className="flex-1 overflow-y-auto mb-4 sm:mb-6 pr-1 sm:pr-2"
       >
-        <div className="space-y-3">
+        <div className="space-y-2 sm:space-y-3">
           {/* 過去を読み込むボタン／ローディング表示 */}
           {hasMore && (
             <div ref={loadButtonRef} className="flex justify-center py-4">

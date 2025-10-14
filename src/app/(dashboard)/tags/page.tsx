@@ -125,17 +125,17 @@ export default function TagsPage() {
   };
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="mx-auto max-w-4xl space-y-4 sm:space-y-6">
       {/* ヘッダー */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Tags</h1>
+          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">Tags</h1>
           <p className="mt-1 text-sm text-gray-500">カテゴリとタグの管理</p>
         </div>
 
-        <Button className="gap-2" onClick={() => setIsCategoryDialogOpen(true)}>
+        <Button className="gap-2 self-start sm:self-auto" onClick={() => setIsCategoryDialogOpen(true)}>
           <Plus className="h-4 w-4" />
-          カテゴリ追加
+          <span className="hidden sm:inline">カテゴリ</span>追加
         </Button>
       </div>
 
@@ -150,29 +150,29 @@ export default function TagsPage() {
                 className="cursor-pointer hover:bg-gray-50 transition-colors"
                 onClick={() => toggleCategory(category.id)}
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                     <div
-                      className="h-4 w-4 rounded"
+                      className="h-4 w-4 rounded flex-shrink-0"
                       style={{ backgroundColor: category.color }}
                     />
-                    <CardTitle className="text-lg">{category.name}</CardTitle>
-                    <span className="text-sm text-gray-500">
-                      ({category.tags.length}件)
+                    <CardTitle className="text-base sm:text-lg truncate">{category.name}</CardTitle>
+                    <span className="text-xs sm:text-sm text-gray-500 flex-shrink-0">
+                      ({category.tags.length})
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <Edit2 className="h-4 w-4" />
+                  <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+                    <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-8 sm:w-8 hidden sm:flex">
+                      <Edit2 className="h-3 w-3 sm:h-4 sm:w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <Archive className="h-4 w-4" />
+                    <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-8 sm:w-8 hidden sm:flex">
+                      <Archive className="h-3 w-3 sm:h-4 sm:w-4" />
                     </Button>
                     {isExpanded ? (
-                      <ChevronUp className="h-5 w-5 text-gray-500" />
+                      <ChevronUp className="h-4 w-4 sm:h-5 sm:w-5 text-gray-500" />
                     ) : (
-                      <ChevronDown className="h-5 w-5 text-gray-500" />
+                      <ChevronDown className="h-4 w-4 sm:h-5 sm:w-5 text-gray-500" />
                     )}
                   </div>
                 </div>
@@ -184,10 +184,10 @@ export default function TagsPage() {
                   {category.tags.map((tag, index) => (
                     <div
                       key={tag.id}
-                      className="flex items-center justify-between rounded-md border p-3 hover:bg-gray-50"
+                      className="flex items-center justify-between rounded-md border p-2 sm:p-3 hover:bg-gray-50 gap-2"
                     >
                       <span
-                        className="inline-flex items-center rounded-md px-2 py-1 text-sm font-medium"
+                        className="inline-flex items-center rounded-md px-2 py-1 text-xs sm:text-sm font-medium truncate"
                         style={{
                           backgroundColor: `${category.color}20`,
                           color: category.color,
@@ -196,30 +196,30 @@ export default function TagsPage() {
                         {tag.name}
                       </span>
 
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8"
+                          className="h-7 w-7 sm:h-8 sm:w-8"
                           disabled={index === 0}
                           onClick={() => moveTag(category.id, index, "up")}
                         >
-                          <ChevronUp className="h-4 w-4" />
+                          <ChevronUp className="h-3 w-3 sm:h-4 sm:w-4" />
                         </Button>
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8"
+                          className="h-7 w-7 sm:h-8 sm:w-8"
                           disabled={index === category.tags.length - 1}
                           onClick={() => moveTag(category.id, index, "down")}
                         >
-                          <ChevronDown className="h-4 w-4" />
+                          <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <Edit2 className="h-4 w-4" />
+                        <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-8 sm:w-8 hidden sm:flex">
+                          <Edit2 className="h-3 w-3 sm:h-4 sm:w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <Archive className="h-4 w-4" />
+                        <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-8 sm:w-8 hidden sm:flex">
+                          <Archive className="h-3 w-3 sm:h-4 sm:w-4" />
                         </Button>
                       </div>
                     </div>

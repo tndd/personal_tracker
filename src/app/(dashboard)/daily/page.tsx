@@ -79,16 +79,16 @@ export default function DailyPage() {
   };
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="mx-auto max-w-3xl space-y-4 sm:space-y-6">
       {/* ヘッダー */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Daily</h1>
+          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">Daily</h1>
           <p className="mt-1 text-sm text-gray-500">日々の日記を記録</p>
         </div>
 
         {/* ビュー切り替え（モック） */}
-        <div className="flex gap-1 rounded-lg border p-1">
+        <div className="flex gap-1 rounded-lg border p-1 self-start sm:self-auto">
           <Button
             variant={viewMode === "calendar" ? "default" : "ghost"}
             size="sm"
@@ -96,7 +96,7 @@ export default function DailyPage() {
             className="gap-2"
           >
             <LayoutGrid className="h-4 w-4" />
-            カレンダー
+            <span className="hidden sm:inline">カレンダー</span>
           </Button>
           <Button
             variant={viewMode === "list" ? "default" : "ghost"}
@@ -105,7 +105,7 @@ export default function DailyPage() {
             className="gap-2"
           >
             <List className="h-4 w-4" />
-            リスト
+            <span className="hidden sm:inline">リスト</span>
           </Button>
         </div>
       </div>
@@ -148,14 +148,14 @@ export default function DailyPage() {
       <button
         onClick={() => handleOpenForm(today)}
         disabled={hasTodayEntry}
-        className={`fixed bottom-8 right-8 flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-all ${
+        className={`fixed bottom-6 right-6 sm:bottom-8 sm:right-8 flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-full shadow-lg transition-all z-30 ${
           hasTodayEntry
             ? "bg-gray-400 cursor-not-allowed"
             : "bg-blue-600 hover:bg-blue-700 hover:scale-110"
         }`}
         title={hasTodayEntry ? "今日の日記は既に記録済みです" : "今日の日記を追加"}
       >
-        <Plus className="h-6 w-6 text-white" />
+        <Plus className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
       </button>
 
       {/* 日記作成・編集ダイアログ */}

@@ -26,25 +26,25 @@ export function DailyCard({ date, memo, condition, onEdit }: DailyCardProps) {
 
   return (
     <Card className="hover:shadow-md transition-shadow">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-        <CardTitle className="text-lg font-semibold">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 sm:pb-4">
+        <CardTitle className="text-base sm:text-lg font-semibold">
           {format(dateObj, "M月d日 (E)", { locale: ja })}
         </CardTitle>
-        <div className="flex items-center gap-3">
-          <span className={`flex items-center gap-2 font-medium ${config.textColor}`}>
-            <span className={`h-6 w-6 rounded-full ${config.bgColor}`} />
-            <span className="text-sm">{config.label}</span>
+        <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+          <span className={`flex items-center gap-1.5 sm:gap-2 font-medium ${config.textColor}`}>
+            <span className={`h-5 w-5 sm:h-6 sm:w-6 rounded-full ${config.bgColor}`} />
+            <span className="text-xs sm:text-sm">{config.label}</span>
           </span>
-          <Button variant="ghost" size="icon" onClick={onEdit} className="h-8 w-8">
-            <Edit2 className="h-4 w-4" />
+          <Button variant="ghost" size="icon" onClick={onEdit} className="h-7 w-7 sm:h-8 sm:w-8">
+            <Edit2 className="h-3 w-3 sm:h-4 sm:w-4" />
           </Button>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-0">
         {memo ? (
-          <p className="text-gray-700 whitespace-pre-wrap">{memo}</p>
+          <p className="text-sm sm:text-base text-gray-700 whitespace-pre-wrap break-words">{memo}</p>
         ) : (
-          <p className="text-gray-400 italic">日記が記録されていません</p>
+          <p className="text-sm sm:text-base text-gray-400 italic">日記が記録されていません</p>
         )}
       </CardContent>
     </Card>

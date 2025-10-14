@@ -71,31 +71,33 @@ export default function AnalysisPage() {
   };
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
+    <div className="mx-auto max-w-5xl space-y-4 sm:space-y-6">
       {/* ヘッダー */}
       <div>
-        <h1 className="text-2xl font-semibold text-gray-900">Analysis</h1>
+        <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">Analysis</h1>
         <p className="mt-1 text-sm text-gray-500">健康データの分析（3時間単位）</p>
       </div>
 
       {/* 期間選択 */}
       <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center gap-4">
+        <CardContent className="p-3 sm:p-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
             <label className="text-sm font-medium text-gray-700">期間:</label>
-            <Input
-              type="date"
-              value={fromDate}
-              onChange={(e) => setFromDate(e.target.value)}
-              className="w-40"
-            />
-            <span className="text-gray-500">〜</span>
-            <Input
-              type="date"
-              value={toDate}
-              onChange={(e) => setToDate(e.target.value)}
-              className="w-40"
-            />
+            <div className="flex items-center gap-2 sm:gap-4">
+              <Input
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                className="w-32 sm:w-40 text-sm"
+              />
+              <span className="text-gray-500">〜</span>
+              <Input
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                className="w-32 sm:w-40 text-sm"
+              />
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -115,8 +117,8 @@ export default function AnalysisPage() {
           ) : (
             <div className="space-y-4">
               {/* グラフ（レンジバー） */}
-              <div className="overflow-x-auto">
-                <div className="relative min-w-max p-4">
+              <div className="overflow-x-auto -mx-2 sm:mx-0">
+                <div className="relative min-w-max p-2 sm:p-4">
                   {/* プラス方向のエリア（上部・固定40px） */}
                   <div className="flex gap-1 h-10">
                     {conditionData.map((item) => (
@@ -174,7 +176,7 @@ export default function AnalysisPage() {
               </div>
 
               {/* 凡例 */}
-              <div className="flex justify-center gap-4 text-xs">
+              <div className="flex flex-wrap justify-center gap-3 sm:gap-4 text-xs">
                 <div className="flex items-center gap-1">
                   <div className="h-3 w-3 rounded bg-green-500" />
                   <span>+2</span>
@@ -185,7 +187,8 @@ export default function AnalysisPage() {
                 </div>
                 <div className="flex items-center gap-1">
                   <div className="h-3 w-3 rounded bg-gray-400" />
-                  <span>基準（±0）</span>
+                  <span className="hidden sm:inline">基準（±0）</span>
+                  <span className="sm:hidden">±0</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <div className="h-3 w-3 rounded bg-orange-400" />
@@ -211,11 +214,11 @@ export default function AnalysisPage() {
             {mockTagCorrelation.map((item) => (
               <div
                 key={item.tagName}
-                className="flex items-center justify-between border-b pb-3 last:border-0"
+                className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 border-b pb-3 last:border-0"
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                   <span
-                    className="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium"
+                    className="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium flex-shrink-0"
                     style={{
                       backgroundColor: `${item.color}20`,
                       color: item.color,
@@ -223,12 +226,12 @@ export default function AnalysisPage() {
                   >
                     {item.tagName}
                   </span>
-                  <span className="text-sm text-gray-600">
-                    出現回数: {item.usageCount}回
+                  <span className="text-xs sm:text-sm text-gray-600 truncate">
+                    <span className="hidden sm:inline">出現回数: </span>{item.usageCount}回
                   </span>
                 </div>
                 <div
-                  className={`text-sm font-medium ${
+                  className={`text-xs sm:text-sm font-medium flex-shrink-0 ${
                     item.averageCondition > 0
                       ? "text-green-600"
                       : item.averageCondition < 0

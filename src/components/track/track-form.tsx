@@ -113,9 +113,9 @@ export function TrackForm({ onSubmit }: TrackFormProps) {
           </div>
 
           {/* 下部コントロール */}
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
             {/* 左側: タグエリア */}
-            <div className="flex-1 flex items-center gap-2 flex-wrap relative">
+            <div className="flex-1 flex items-center gap-2 flex-wrap relative min-h-[2rem]">
               {/* タグ追加ボタン */}
               <button
                 ref={tagButtonRef}
@@ -130,13 +130,13 @@ export function TrackForm({ onSubmit }: TrackFormProps) {
               {selectedTags.map((tag) => (
                 <span
                   key={tag.id}
-                  className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-sm font-medium"
+                  className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs sm:text-sm font-medium"
                   style={{
                     backgroundColor: `${tag.color}20`,
                     color: tag.color,
                   }}
                 >
-                  {tag.categoryName}/{tag.name}
+                  <span className="hidden sm:inline">{tag.categoryName}/</span>{tag.name}
                   <button
                     onClick={() => handleTagRemove(tag.id)}
                     className="hover:opacity-70"
@@ -157,7 +157,7 @@ export function TrackForm({ onSubmit }: TrackFormProps) {
             </div>
 
             {/* 右側: コンディション + 送信ボタン */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between sm:justify-start gap-2">
               {/* コンディションボタン */}
               <button
                 ref={conditionButtonRef}
@@ -186,7 +186,7 @@ export function TrackForm({ onSubmit }: TrackFormProps) {
                 className="gap-2"
               >
                 <Send className="h-4 w-4" />
-                記録
+                <span className="hidden sm:inline">記録</span>
               </Button>
             </div>
           </div>

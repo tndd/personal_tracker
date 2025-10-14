@@ -43,27 +43,27 @@ export function TrackCard({
 
   return (
     <Card className="hover:shadow-md transition-shadow">
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex-1 space-y-2">
+      <CardContent className="p-3 sm:p-4">
+        <div className="flex items-start justify-between gap-2 sm:gap-4">
+          <div className="flex-1 space-y-1.5 sm:space-y-2 min-w-0">
             {/* 時刻とコンディション */}
-            <div className="flex items-center gap-2 text-sm text-gray-500">
+            <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-gray-500">
               <time>{format(date, "HH:mm", { locale: ja })}</time>
               <span className="text-gray-300">•</span>
-              <span className={`flex items-center gap-1.5 font-medium ${config.textColor}`}>
-                <span className={`h-4 w-4 rounded-full ${config.bgColor}`} />
+              <span className={`flex items-center gap-1 sm:gap-1.5 font-medium ${config.textColor}`}>
+                <span className={`h-3 w-3 sm:h-4 sm:w-4 rounded-full ${config.bgColor}`} />
                 <span>{config.label}</span>
               </span>
             </div>
 
             {/* メモ */}
             {memo && (
-              <p className="text-gray-900 whitespace-pre-wrap">{memo}</p>
+              <p className="text-sm sm:text-base text-gray-900 whitespace-pre-wrap break-words">{memo}</p>
             )}
 
             {/* タグ */}
             {tags.length > 0 && (
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1.5 sm:gap-2">
                 {tags.map((tag) => (
                   <span
                     key={tag.id}
@@ -73,7 +73,7 @@ export function TrackCard({
                       color: tag.color,
                     }}
                   >
-                    {tag.categoryName}/{tag.name}
+                    <span className="hidden sm:inline">{tag.categoryName}/</span>{tag.name}
                   </span>
                 ))}
               </div>
@@ -81,22 +81,22 @@ export function TrackCard({
           </div>
 
           {/* アクション */}
-          <div className="flex gap-1">
+          <div className="flex gap-0.5 sm:gap-1 flex-shrink-0">
             <Button
               variant="ghost"
               size="icon"
               onClick={onEdit}
-              className="h-8 w-8"
+              className="h-7 w-7 sm:h-8 sm:w-8"
             >
-              <Edit2 className="h-4 w-4" />
+              <Edit2 className="h-3 w-3 sm:h-4 sm:w-4" />
             </Button>
             <Button
               variant="ghost"
               size="icon"
               onClick={onDelete}
-              className="h-8 w-8 text-red-600 hover:text-red-700"
+              className="h-7 w-7 sm:h-8 sm:w-8 text-red-600 hover:text-red-700"
             >
-              <Trash2 className="h-4 w-4" />
+              <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
             </Button>
           </div>
         </div>
