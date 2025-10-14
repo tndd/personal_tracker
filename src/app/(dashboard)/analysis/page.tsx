@@ -63,57 +63,6 @@ export default function AnalysisPage() {
     fetchData();
   }, [fromDate, toDate]);
 
-  // レンジバーのレンダリング関数
-  const renderRangeBar = (item: HourlyCondition) => {
-    const { min, max } = item;
-    const unitHeight = 20; // 1段あたりの高さ（px）
-    const itemKey = `${item.date}-${item.slot}`;
-
-    // 上方向（プラス）のバー
-    const positiveSegments = [];
-    for (let i = 1; i <= Math.max(0, max); i++) {
-      const color = i === 2 ? "bg-green-500" : "bg-green-400";
-      positiveSegments.push(
-        <div
-          key={`${itemKey}-pos-${i}`}
-          className={`w-full ${color} border-t border-white`}
-          style={{ height: `${unitHeight}px` }}
-        />,
-      );
-    }
-
-    // 下方向（マイナス）のバー
-    const negativeSegments = [];
-    for (let i = -1; i >= Math.min(0, min); i--) {
-      const color = i === -2 ? "bg-red-500" : "bg-orange-400";
-      negativeSegments.push(
-        <div
-          key={`${itemKey}-neg-${i}`}
-          className={`w-full ${color} border-t border-white`}
-          style={{ height: `${unitHeight}px` }}
-        />,
-      );
-    }
-
-    // 中央の灰色基準線
-    const hasData = max !== 0 || min !== 0;
-    const centerHeight = hasData ? 4 : 12; // データがない場合は少し太く
-
-    return (
-      <div className="flex flex-col items-center">
-        {/* プラス方向 */}
-        <div className="flex flex-col-reverse">{positiveSegments}</div>
-        {/* 中央基準線 */}
-        <div
-          className="w-full bg-gray-400"
-          style={{ height: `${centerHeight}px` }}
-        />
-        {/* マイナス方向 */}
-        <div className="flex flex-col">{negativeSegments}</div>
-      </div>
-    );
-  };
-
   // 日付とスロットのラベルを生成
   const getSlotLabel = (slot: number) => {
     const start = slot * 3;
@@ -167,26 +116,61 @@ export default function AnalysisPage() {
             <div className="space-y-4">
               {/* グラフ（レンジバー） */}
               <div className="overflow-x-auto">
-                <div className="flex items-center gap-1 min-w-max p-4">
-                  {conditionData.map((item) => (
-                    <div
-                      key={`${item.date}-${item.slot}`}
-                      className="flex flex-col items-center gap-2"
-                    >
-                      {/* レンジバー */}
-                      <div className="w-8">{renderRangeBar(item)}</div>
-                      {/* 時間帯ラベル */}
-                      <span className="text-xs text-gray-600">
-                        {getSlotLabel(item.slot)}
-                      </span>
-                      {/* 日付ラベル（日付が変わる最初のスロットのみ表示） */}
-                      {item.slot === 0 && (
-                        <span className="text-xs font-medium text-gray-700">
-                          {item.date.slice(5)}
+                <div className="relative min-w-max p-4">
+                  {/* プラス方向のエリア（上部） */}
+                  <div className="flex gap-1 h-20 items-end">
+                    {conditionData.map((item) => (
+                      <div key={`${item.date}-${item.slot}-top`} className="w-8">
+                        {item.max > 0 && (
+                          <div
+                            className={
+                              item.max === 2 ? "bg-green-500" : "bg-green-400"
+                            }
+                            style={{ height: `${item.max * 20}px` }}
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* 灰色の基準線（横一直線） */}
+                  <div className="w-full h-1 bg-gray-400" />
+
+                  {/* マイナス方向のエリア（下部） */}
+                  <div className="flex gap-1 h-20">
+                    {conditionData.map((item) => (
+                      <div key={`${item.date}-${item.slot}-bottom`} className="w-8">
+                        {item.min < 0 && (
+                          <div
+                            className={
+                              item.min === -2 ? "bg-red-500" : "bg-orange-400"
+                            }
+                            style={{ height: `${Math.abs(item.min) * 20}px` }}
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* 時間帯ラベル */}
+                  <div className="flex gap-1 mt-2">
+                    {conditionData.map((item) => (
+                      <div
+                        key={`${item.date}-${item.slot}-label`}
+                        className="w-8 flex flex-col items-center gap-1"
+                      >
+                        <span className="text-xs text-gray-600">
+                          {getSlotLabel(item.slot)}
                         </span>
-                      )}
-                    </div>
-                  ))}
+                        {/* 日付ラベル（日付が変わる最初のスロットのみ表示） */}
+                        {item.slot === 0 && (
+                          <span className="text-xs font-medium text-gray-700">
+                            {item.date.slice(5)}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
 
