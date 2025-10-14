@@ -75,10 +75,10 @@ export function TrackForm({ onSubmit }: TrackFormProps) {
   };
 
   const getTagPopupPosition = () => {
-    if (!tagButtonRef.current) return { top: 0, left: 0 };
+    if (!tagButtonRef.current) return { bottom: 0, left: 0 };
     const rect = tagButtonRef.current.getBoundingClientRect();
     return {
-      top: rect.bottom + 8,
+      bottom: window.innerHeight - rect.top + 8,
       left: rect.left,
     };
   };

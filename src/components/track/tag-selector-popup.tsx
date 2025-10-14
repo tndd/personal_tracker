@@ -48,7 +48,7 @@ interface Tag {
 interface TagSelectorPopupProps {
   onSelect: (tag: Tag) => void;
   onClose: () => void;
-  position?: { top: number; left: number };
+  position?: { bottom: number; left: number };
 }
 
 export function TagSelectorPopup({ onSelect, onClose, position }: TagSelectorPopupProps) {
@@ -90,9 +90,9 @@ export function TagSelectorPopup({ onSelect, onClose, position }: TagSelectorPop
 
       {/* ポップアップ */}
       <Card
-        className="absolute z-50 w-72 max-h-96 overflow-y-auto shadow-lg"
+        className="fixed z-50 w-72 max-h-96 overflow-y-auto shadow-lg"
         style={{
-          top: position?.top || 0,
+          bottom: position?.bottom || 0,
           left: position?.left || 0,
         }}
       >
