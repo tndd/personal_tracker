@@ -4,6 +4,12 @@ import { z } from "zod";
 
 import { db } from "@/lib/db/client";
 import { tracks } from "@/lib/db/schema";
+import {
+  toJSTDateString,
+  fromJSTDateString,
+  getJSTTimeSlot,
+  getCurrentJSTDateString,
+} from "@/lib/timezone";
 
 const querySchema = z.object({
   from: z
@@ -15,32 +21,6 @@ const querySchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .optional(),
 });
-
-function formatDate(date: Date) {
-  const year = date.getUTCFullYear();
-  const month = `${date.getUTCMonth() + 1}`.padStart(2, "0");
-  const day = `${date.getUTCDate()}`.padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-// 3時間単位の区間を計算（0-3, 3-6, 6-9, 9-12, 12-15, 15-18, 18-21, 21-24）
-function getTimeSlot(date: Date): number {
-  // UTCから9時間を加算してJSTに変換
-  const jstOffset = 9 * 60 * 60 * 1000;
-  const jstTime = new Date(date.getTime() + jstOffset);
-  const hours = jstTime.getUTCHours();
-  return Math.floor(hours / 3);
-}
-
-function getDateKey(date: Date): string {
-  // UTCから9時間を加算してJSTに変換
-  const jstOffset = 9 * 60 * 60 * 1000;
-  const jstTime = new Date(date.getTime() + jstOffset);
-  const year = jstTime.getUTCFullYear();
-  const month = `${jstTime.getUTCMonth() + 1}`.padStart(2, "0");
-  const day = `${jstTime.getUTCDate()}`.padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
 
 export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
@@ -54,8 +34,8 @@ export async function GET(request: Request) {
   }
 
   const today = new Date();
-  const defaultTo = formatDate(today);
-  const defaultFrom = formatDate(new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000)); // 過去7日間
+  const defaultTo = getCurrentJSTDateString();
+  const defaultFrom = toJSTDateString(new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000)); // 過去7日間
 
   const from = parsed.data.from ?? defaultFrom;
   const to = parsed.data.to ?? defaultTo;
@@ -67,9 +47,10 @@ export async function GET(request: Request) {
     );
   }
 
-  // 期間内のtrackデータを取得
-  const fromDate = new Date(`${from}T00:00:00`);
-  const toDate = new Date(`${to}T23:59:59`);
+  // JST日付文字列をUTC Dateオブジェクトに変換
+  // from="2025-10-15" は JST 2025-10-15 00:00:00 を意味し、UTC 2025-10-14 15:00:00 になる
+  const fromDate = fromJSTDateString(from, "00:00:00");
+  const toDate = fromJSTDateString(to, "23:59:59");
 
   const data = await db
     .select({
@@ -93,8 +74,8 @@ export async function GET(request: Request) {
     if (!item.createdAt || item.condition === null) continue;
 
     const date = new Date(item.createdAt);
-    const dateKey = getDateKey(date);
-    const slot = getTimeSlot(date);
+    const dateKey = toJSTDateString(date);
+    const slot = getJSTTimeSlot(date);
     const key = `${dateKey}-${slot}`;
 
     const existing = slotMap.get(key);

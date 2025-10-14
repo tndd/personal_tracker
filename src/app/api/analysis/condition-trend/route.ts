@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { db } from "@/lib/db/client";
 import { dailies } from "@/lib/db/schema";
+import { toJSTDateString, getCurrentJSTDateString } from "@/lib/timezone";
 
 const querySchema = z.object({
   from: z
@@ -15,13 +16,6 @@ const querySchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .optional(),
 });
-
-function formatDate(date: Date) {
-  const year = date.getUTCFullYear();
-  const month = `${date.getUTCMonth() + 1}`.padStart(2, "0");
-  const day = `${date.getUTCDate()}`.padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
 
 export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
@@ -35,8 +29,8 @@ export async function GET(request: Request) {
   }
 
   const today = new Date();
-  const defaultTo = formatDate(today);
-  const defaultFrom = formatDate(new Date(today.getTime() - 29 * 24 * 60 * 60 * 1000));
+  const defaultTo = getCurrentJSTDateString();
+  const defaultFrom = toJSTDateString(new Date(today.getTime() - 29 * 24 * 60 * 60 * 1000));
 
   const from = parsed.data.from ?? defaultFrom;
   const to = parsed.data.to ?? defaultTo;
