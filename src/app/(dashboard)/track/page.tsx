@@ -42,7 +42,7 @@ const generateMockTracks = (count: number, startIndex: number, baseTime?: number
     const condition = ((index * 7) % 5) - 2; // -2 から 2
     const memo = memos[index % memos.length];
     const tagCount = (index * 3) % 3; // 0-2個のタグ
-    const selectedTags = [];
+    const selectedTags: typeof tags = [];
     for (let j = 0; j < tagCount; j++) {
       const tagIndex = (index + j) % tags.length;
       const tag = tags[tagIndex];
@@ -72,7 +72,7 @@ export default function TrackPage() {
   const [hasMore, setHasMore] = useState(true);
   const [oldestIndex, setOldestIndex] = useState(10); // 次にロードするトラックのインデックス
   const containerRef = useRef<HTMLDivElement>(null);
-  const loadButtonRef = useRef<HTMLButtonElement>(null);
+  const loadButtonRef = useRef<HTMLDivElement>(null);
   const isLoadingRef = useRef(false); // ローディング中フラグ（同期的にチェック可能）
 
   const handleSubmit = (data: { memo: string; condition: number; tagIds: string[] }) => {

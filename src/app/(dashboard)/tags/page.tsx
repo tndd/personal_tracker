@@ -93,7 +93,11 @@ export default function TagsPage() {
       tags: [],
     };
     setCategories((prev) => [...prev, newCategory]);
-    setExpandedCategories((prev) => new Set([...prev, newCategory.id]));
+    setExpandedCategories((prev) => {
+      const next = new Set(prev);
+      next.add(newCategory.id);
+      return next;
+    });
   };
 
   // タグ追加ダイアログを開く
