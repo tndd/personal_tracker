@@ -28,6 +28,7 @@ interface Daily {
 interface CalendarViewProps {
   dailies: Daily[];
   onEdit?: (date: string) => void;
+  onAddNew?: (date: string) => void;
 }
 
 // コンディションの色設定
@@ -39,7 +40,7 @@ const conditionColors = {
   "-2": "bg-red-600",
 } as const;
 
-export function CalendarView({ dailies, onEdit }: CalendarViewProps) {
+export function CalendarView({ dailies, onEdit, onAddNew }: CalendarViewProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDaily, setSelectedDaily] = useState<Daily | null>(null);
 
@@ -63,8 +64,33 @@ export function CalendarView({ dailies, onEdit }: CalendarViewProps) {
   const handleDayClick = (day: Date) => {
     const dateStr = format(day, "yyyy-MM-dd");
     const daily = dailyMap.get(dateStr);
+
+    console.log("日付クリック:", dateStr, "既存の日記:", !!daily);
+
     if (daily) {
+      // 既存の日記がある場合は詳細表示
+      console.log("既存の日記を表示");
       setSelectedDaily(daily);
+    } else {
+      // 空白の日で今日以前の場合は新規作成（未来の日付は不可）
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const isInMonth = isSameMonth(day, currentMonth);
+      const isNotFuture = day <= today;
+
+      console.log("新規作成チェック:", {
+        isInMonth,
+        isNotFuture,
+        today: format(today, "yyyy-MM-dd"),
+      });
+
+      if (isNotFuture && isInMonth) {
+        console.log("新規作成フォームを開く:", dateStr);
+        onAddNew?.(dateStr);
+      } else {
+        console.log("条件を満たさないためスキップ");
+      }
     }
   };
 
@@ -112,16 +138,24 @@ export function CalendarView({ dailies, onEdit }: CalendarViewProps) {
             const isCurrentMonth = isSameMonth(day, currentMonth);
             const isToday = isSameDay(day, new Date());
 
+            // 今日以前の日付かチェック（未来の日付は不可）
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const isNotFuture = day <= today;
+
+            // クリック可能：既存の日記がある または 今日以前の当月の日
+            const isClickable = daily || (isNotFuture && isCurrentMonth);
+
             return (
               <button
                 key={i}
                 onClick={() => handleDayClick(day)}
-                disabled={!daily}
+                disabled={!isClickable}
                 className={`
                   relative aspect-square border-b border-r p-2
                   transition-colors
                   ${!isCurrentMonth ? "bg-gray-50" : ""}
-                  ${daily ? "hover:bg-gray-100 cursor-pointer" : "cursor-default"}
+                  ${isClickable ? "hover:bg-gray-100 cursor-pointer" : "cursor-default"}
                   ${isToday ? "ring-2 ring-blue-500 ring-inset" : ""}
                 `}
               >

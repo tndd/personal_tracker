@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -30,7 +30,7 @@ export function DailyFormDialog({
   const [memo, setMemo] = useState("");
   const [condition, setCondition] = useState(0);
 
-  if (!isOpen) return null;
+  if (!isOpen || !date) return null;
 
   const handleSubmit = () => {
     onSubmit({ memo: memo.trim(), condition });

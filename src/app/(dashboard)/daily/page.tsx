@@ -41,19 +41,30 @@ export default function DailyPage() {
   const [dailies, setDailies] = useState(mockDailies);
   const [viewMode, setViewMode] = useState<"list" | "calendar">("calendar");
   const [showFormDialog, setShowFormDialog] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<string>("");
 
   // 今日の日付
   const today = format(new Date(), "yyyy-MM-dd");
   // 今日の日記が既に存在するかチェック
   const hasTodayEntry = dailies.some((daily) => daily.date === today);
 
+  const handleOpenForm = (date: string) => {
+    setSelectedDate(date);
+    setShowFormDialog(true);
+  };
+
   const handleSubmit = (data: { memo: string; condition: number }) => {
     const newDaily = {
-      date: today,
+      date: selectedDate,
       memo: data.memo || null,
       condition: data.condition,
     };
-    setDailies([newDaily, ...dailies]);
+
+    // 日付順にソートして挿入（新しい順）
+    const updatedDailies = [...dailies, newDaily].sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+    setDailies(updatedDailies);
   };
 
   return (
@@ -118,12 +129,13 @@ export default function DailyPage() {
         <CalendarView
           dailies={dailies}
           onEdit={(date) => console.log("Edit", date)}
+          onAddNew={handleOpenForm}
         />
       )}
 
       {/* FAB（Floating Action Button） */}
       <button
-        onClick={() => setShowFormDialog(true)}
+        onClick={() => handleOpenForm(today)}
         disabled={hasTodayEntry}
         className={`fixed bottom-8 right-8 flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-all ${
           hasTodayEntry
@@ -140,7 +152,7 @@ export default function DailyPage() {
         isOpen={showFormDialog}
         onClose={() => setShowFormDialog(false)}
         onSubmit={handleSubmit}
-        date={today}
+        date={selectedDate}
       />
     </div>
   );
