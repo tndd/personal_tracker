@@ -14,7 +14,7 @@ interface ConditionSelectorPopupProps {
   currentCondition: number;
   onSelect: (condition: number) => void;
   onClose: () => void;
-  position?: { top: number; right: number };
+  position?: { bottom: number; right: number };
 }
 
 export function ConditionSelectorPopup({
@@ -40,7 +40,7 @@ export function ConditionSelectorPopup({
       <Card
         className="absolute z-50 w-48 shadow-lg"
         style={{
-          top: position?.top || 0,
+          bottom: position?.bottom || 0,
           right: position?.right || 0,
         }}
       >

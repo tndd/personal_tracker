@@ -84,10 +84,10 @@ export function TrackForm({ onSubmit }: TrackFormProps) {
   };
 
   const getConditionPopupPosition = () => {
-    if (!conditionButtonRef.current) return { top: 0, right: 0 };
+    if (!conditionButtonRef.current) return { bottom: 0, right: 0 };
     const rect = conditionButtonRef.current.getBoundingClientRect();
     return {
-      top: rect.bottom + 8,
+      bottom: window.innerHeight - rect.top + 8,
       right: window.innerWidth - rect.right,
     };
   };
