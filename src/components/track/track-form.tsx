@@ -97,14 +97,20 @@ export function TrackForm({ onSubmit }: TrackFormProps) {
       <CardContent className="p-4">
         <div className="space-y-4">
           {/* メモ入力 */}
-          <Textarea
-            value={memo}
-            onChange={(e) => setMemo(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="何かメモを記録..."
-            className="min-h-[100px] resize-none"
-            maxLength={1000}
-          />
+          <div className="relative">
+            <Textarea
+              value={memo}
+              onChange={(e) => setMemo(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="何かメモを記録..."
+              className="min-h-[100px] resize-none pr-32"
+              maxLength={1000}
+            />
+            {/* ヒント（テキストエリア内部右下） */}
+            <p className="absolute right-3 bottom-3 text-xs text-gray-400 pointer-events-none">
+              ⌘+Enter で送信
+            </p>
+          </div>
 
           {/* 下部コントロール */}
           <div className="flex items-center justify-between gap-4">
@@ -184,11 +190,6 @@ export function TrackForm({ onSubmit }: TrackFormProps) {
               </Button>
             </div>
           </div>
-
-          {/* ヒント */}
-          <p className="text-xs text-gray-500">
-            ⌘+Enter で送信 • {memo.length}/1000
-          </p>
         </div>
       </CardContent>
     </Card>
