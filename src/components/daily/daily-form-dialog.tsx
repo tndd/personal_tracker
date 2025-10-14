@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,8 @@ interface DailyFormDialogProps {
   onClose: () => void;
   onSubmit: (data: { memo: string; condition: number }) => void;
   date: string; // YYYY-MM-DD
+  initialMemo?: string; // 既存の日記内容（編集時）
+  initialCondition?: number; // 既存のコンディション（編集時）
 }
 
 const conditionOptions = [
@@ -26,9 +28,19 @@ export function DailyFormDialog({
   onClose,
   onSubmit,
   date,
+  initialMemo = "",
+  initialCondition = 0,
 }: DailyFormDialogProps) {
-  const [memo, setMemo] = useState("");
-  const [condition, setCondition] = useState(0);
+  const [memo, setMemo] = useState(initialMemo);
+  const [condition, setCondition] = useState(initialCondition);
+
+  // ダイアログが開いた時に既存データで初期化
+  useEffect(() => {
+    if (isOpen) {
+      setMemo(initialMemo);
+      setCondition(initialCondition);
+    }
+  }, [isOpen, initialMemo, initialCondition]);
 
   if (!isOpen || !date) return null;
 

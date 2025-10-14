@@ -54,16 +54,27 @@ export default function DailyPage() {
   };
 
   const handleSubmit = (data: { memo: string; condition: number }) => {
-    const newDaily = {
+    const updatedDaily = {
       date: selectedDate,
       memo: data.memo || null,
       condition: data.condition,
     };
 
-    // 日付順にソートして挿入（新しい順）
-    const updatedDailies = [...dailies, newDaily].sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-    );
+    // 既存の日記があれば更新、なければ追加
+    const existingIndex = dailies.findIndex((d) => d.date === selectedDate);
+    let updatedDailies;
+
+    if (existingIndex >= 0) {
+      // 既存の日記を更新
+      updatedDailies = [...dailies];
+      updatedDailies[existingIndex] = updatedDaily;
+    } else {
+      // 新規追加して日付順にソート（新しい順）
+      updatedDailies = [...dailies, updatedDaily].sort(
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+      );
+    }
+
     setDailies(updatedDailies);
   };
 
@@ -115,7 +126,7 @@ export default function DailyPage() {
               <DailyCard
                 key={daily.date}
                 {...daily}
-                onEdit={() => console.log("Edit", daily.date)}
+                onEdit={() => handleOpenForm(daily.date)}
               />
             ))}
           </div>
@@ -128,7 +139,7 @@ export default function DailyPage() {
       ) : (
         <CalendarView
           dailies={dailies}
-          onEdit={(date) => console.log("Edit", date)}
+          onEdit={handleOpenForm}
           onAddNew={handleOpenForm}
         />
       )}
@@ -147,12 +158,14 @@ export default function DailyPage() {
         <Plus className="h-6 w-6 text-white" />
       </button>
 
-      {/* 日記作成ダイアログ */}
+      {/* 日記作成・編集ダイアログ */}
       <DailyFormDialog
         isOpen={showFormDialog}
         onClose={() => setShowFormDialog(false)}
         onSubmit={handleSubmit}
         date={selectedDate}
+        initialMemo={dailies.find((d) => d.date === selectedDate)?.memo || ""}
+        initialCondition={dailies.find((d) => d.date === selectedDate)?.condition ?? 0}
       />
     </div>
   );

@@ -16,8 +16,6 @@ import {
 import { ja } from "date-fns/locale";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { DailyCard } from "./daily-card";
-import { Card } from "@/components/ui/card";
 
 interface Daily {
   date: string;
@@ -42,7 +40,6 @@ const conditionColors = {
 
 export function CalendarView({ dailies, onEdit, onAddNew }: CalendarViewProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [selectedDaily, setSelectedDaily] = useState<Daily | null>(null);
 
   // dailiesを日付でマップ化
   const dailyMap = new Map(dailies.map((d) => [d.date, d]));
@@ -68,9 +65,9 @@ export function CalendarView({ dailies, onEdit, onAddNew }: CalendarViewProps) {
     console.log("日付クリック:", dateStr, "既存の日記:", !!daily);
 
     if (daily) {
-      // 既存の日記がある場合は詳細表示
-      console.log("既存の日記を表示");
-      setSelectedDaily(daily);
+      // 既存の日記がある場合は編集フォームを開く
+      console.log("既存の日記を編集");
+      onEdit?.(dateStr);
     } else {
       // 空白の日で今日以前の場合は新規作成（未来の日付は不可）
       const today = new Date();
@@ -189,28 +186,6 @@ export function CalendarView({ dailies, onEdit, onAddNew }: CalendarViewProps) {
         </div>
       </div>
 
-      {/* 選択された日の詳細 */}
-      {selectedDaily && (
-        <Card className="p-4">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-lg font-semibold">
-              {format(new Date(selectedDaily.date + "T00:00:00"), "M月d日 (E)", {
-                locale: ja,
-              })}
-            </h3>
-            <Button variant="ghost" size="sm" onClick={() => setSelectedDaily(null)}>
-              閉じる
-            </Button>
-          </div>
-          <DailyCard
-            {...selectedDaily}
-            onEdit={() => {
-              setSelectedDaily(null);
-              onEdit?.(selectedDaily.date);
-            }}
-          />
-        </Card>
-      )}
     </div>
   );
 }
