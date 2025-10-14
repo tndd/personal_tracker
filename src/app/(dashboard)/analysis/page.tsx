@@ -1,18 +1,19 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
-// モックデータ: コンディション推移
-const mockConditionTrend = [
-  { date: "10/08", condition: -1 },
-  { date: "10/09", condition: 0 },
-  { date: "10/10", condition: 2 },
-  { date: "10/11", condition: -2 },
-  { date: "10/12", condition: 0 },
-  { date: "10/13", condition: 1 },
-  { date: "10/14", condition: 1 },
-];
+// 3時間区間のデータ型
+type HourlyCondition = {
+  date: string;
+  slot: number;
+  startHour: number;
+  endHour: number;
+  min: number;
+  max: number;
+  count: number;
+};
 
 // モックデータ: タグ相関
 const mockTagCorrelation = [
@@ -23,19 +24,101 @@ const mockTagCorrelation = [
   { tagName: "食事", usageCount: 20, averageCondition: 0.2, color: "#EC4899" },
 ];
 
+function formatDate(date: Date) {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export default function AnalysisPage() {
-  // コンディション値を高さ（0-100%）に変換
-  const getBarHeight = (condition: number) => {
-    return ((condition + 2) / 4) * 100; // -2~2 を 0~100% に変換
+  const [conditionData, setConditionData] = useState<HourlyCondition[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // デフォルト期間（過去7日間）
+  const today = new Date();
+  const defaultTo = formatDate(today);
+  const defaultFrom = formatDate(new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000));
+
+  const [fromDate, setFromDate] = useState(defaultFrom);
+  const [toDate, setToDate] = useState(defaultTo);
+
+  // データ取得
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const params = new URLSearchParams({ from: fromDate, to: toDate });
+        const response = await fetch(`/api/analysis/condition-hourly?${params}`);
+        if (response.ok) {
+          const data = await response.json();
+          setConditionData(data.items);
+        }
+      } catch (error) {
+        console.error("データ取得エラー:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [fromDate, toDate]);
+
+  // レンジバーのレンダリング関数
+  const renderRangeBar = (item: HourlyCondition) => {
+    const { min, max } = item;
+    const unitHeight = 20; // 1段あたりの高さ（px）
+    const itemKey = `${item.date}-${item.slot}`;
+
+    // 上方向（プラス）のバー
+    const positiveSegments = [];
+    for (let i = 1; i <= Math.max(0, max); i++) {
+      const color = i === 2 ? "bg-green-500" : "bg-green-400";
+      positiveSegments.push(
+        <div
+          key={`${itemKey}-pos-${i}`}
+          className={`w-full ${color} border-t border-white`}
+          style={{ height: `${unitHeight}px` }}
+        />,
+      );
+    }
+
+    // 下方向（マイナス）のバー
+    const negativeSegments = [];
+    for (let i = -1; i >= Math.min(0, min); i--) {
+      const color = i === -2 ? "bg-red-500" : "bg-orange-400";
+      negativeSegments.push(
+        <div
+          key={`${itemKey}-neg-${i}`}
+          className={`w-full ${color} border-t border-white`}
+          style={{ height: `${unitHeight}px` }}
+        />,
+      );
+    }
+
+    // 中央の灰色基準線
+    const hasData = max !== 0 || min !== 0;
+    const centerHeight = hasData ? 4 : 12; // データがない場合は少し太く
+
+    return (
+      <div className="flex flex-col items-center">
+        {/* プラス方向 */}
+        <div className="flex flex-col-reverse">{positiveSegments}</div>
+        {/* 中央基準線 */}
+        <div
+          className="w-full bg-gray-400"
+          style={{ height: `${centerHeight}px` }}
+        />
+        {/* マイナス方向 */}
+        <div className="flex flex-col">{negativeSegments}</div>
+      </div>
+    );
   };
 
-  // コンディションの色
-  const getConditionColor = (condition: number) => {
-    if (condition >= 1) return "bg-green-500";
-    if (condition > 0) return "bg-green-400";
-    if (condition === 0) return "bg-gray-400";
-    if (condition > -2) return "bg-orange-400";
-    return "bg-red-500";
+  // 日付とスロットのラベルを生成
+  const getSlotLabel = (slot: number) => {
+    const start = slot * 3;
+    const end = (slot + 1) * 3;
+    return `${start}-${end}h`;
   };
 
   return (
@@ -43,7 +126,7 @@ export default function AnalysisPage() {
       {/* ヘッダー */}
       <div>
         <h1 className="text-2xl font-semibold text-gray-900">Analysis</h1>
-        <p className="mt-1 text-sm text-gray-500">健康データの分析</p>
+        <p className="mt-1 text-sm text-gray-500">健康データの分析（3時間単位）</p>
       </div>
 
       {/* 期間選択 */}
@@ -51,59 +134,87 @@ export default function AnalysisPage() {
         <CardContent className="p-4">
           <div className="flex items-center gap-4">
             <label className="text-sm font-medium text-gray-700">期間:</label>
-            <Input type="date" defaultValue="2025-10-01" className="w-40" />
+            <Input
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              className="w-40"
+            />
             <span className="text-gray-500">〜</span>
-            <Input type="date" defaultValue="2025-10-14" className="w-40" />
+            <Input
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              className="w-40"
+            />
           </div>
         </CardContent>
       </Card>
 
-      {/* コンディション推移 */}
+      {/* コンディション推移（3時間区間） */}
       <Card>
         <CardHeader>
-          <CardTitle>コンディション推移</CardTitle>
+          <CardTitle>コンディション推移（3時間区間）</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {/* グラフ（シンプルな棒グラフ） */}
-            <div className="flex items-end justify-around h-48 border-b border-l border-gray-200 p-4">
-              {mockConditionTrend.map((item) => (
-                <div key={item.date} className="flex flex-col items-center gap-2">
-                  <div className="relative h-32 w-12 flex items-end">
+          {loading ? (
+            <div className="text-center py-8 text-gray-500">読み込み中...</div>
+          ) : conditionData.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              データがありません
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* グラフ（レンジバー） */}
+              <div className="overflow-x-auto">
+                <div className="flex items-center gap-1 min-w-max p-4">
+                  {conditionData.map((item) => (
                     <div
-                      className={`w-full rounded-t ${getConditionColor(item.condition)}`}
-                      style={{ height: `${getBarHeight(item.condition)}%` }}
-                    />
-                  </div>
-                  <span className="text-xs text-gray-600">{item.date}</span>
+                      key={`${item.date}-${item.slot}`}
+                      className="flex flex-col items-center gap-2"
+                    >
+                      {/* レンジバー */}
+                      <div className="w-8">{renderRangeBar(item)}</div>
+                      {/* 時間帯ラベル */}
+                      <span className="text-xs text-gray-600">
+                        {getSlotLabel(item.slot)}
+                      </span>
+                      {/* 日付ラベル（日付が変わる最初のスロットのみ表示） */}
+                      {item.slot === 0 && (
+                        <span className="text-xs font-medium text-gray-700">
+                          {item.date.slice(5)}
+                        </span>
+                      )}
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </div>
 
-            {/* 凡例 */}
-            <div className="flex justify-center gap-4 text-xs">
-              <div className="flex items-center gap-1">
-                <div className="h-3 w-3 rounded bg-green-500" />
-                <span>+2</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="h-3 w-3 rounded bg-green-400" />
-                <span>+1</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="h-3 w-3 rounded bg-gray-400" />
-                <span>±0</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="h-3 w-3 rounded bg-orange-400" />
-                <span>-1</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="h-3 w-3 rounded bg-red-500" />
-                <span>-2</span>
+              {/* 凡例 */}
+              <div className="flex justify-center gap-4 text-xs">
+                <div className="flex items-center gap-1">
+                  <div className="h-3 w-3 rounded bg-green-500" />
+                  <span>+2</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="h-3 w-3 rounded bg-green-400" />
+                  <span>+1</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="h-3 w-3 rounded bg-gray-400" />
+                  <span>基準（±0）</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="h-3 w-3 rounded bg-orange-400" />
+                  <span>-1</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="h-3 w-3 rounded bg-red-500" />
+                  <span>-2</span>
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </CardContent>
       </Card>
 
