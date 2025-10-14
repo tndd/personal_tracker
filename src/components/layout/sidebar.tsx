@@ -37,9 +37,10 @@ const navigation = [
 interface SidebarProps {
   isOpen?: boolean;
   onClose?: () => void;
+  children?: React.ReactNode; // コンテキスト依存コンテンツ
 }
 
-export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
+export function Sidebar({ isOpen = true, onClose, children }: SidebarProps) {
   const pathname = usePathname();
 
   return (
@@ -74,7 +75,7 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
         </div>
 
         {/* ナビゲーション */}
-        <nav className="flex-1 space-y-1 px-3 py-4">
+        <nav className="space-y-1 px-3 py-4">
           {navigation.map((item) => {
             const isActive = pathname.startsWith(item.href);
             return (
@@ -100,6 +101,16 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
             );
           })}
         </nav>
+
+        {/* 区切り線 */}
+        {children && <div className="border-t border-gray-200" />}
+
+        {/* コンテキスト依存コンテンツエリア */}
+        {children && (
+          <div className="flex-1 overflow-y-auto px-3 py-4">
+            {children}
+          </div>
+        )}
 
         {/* フッター（オプション） */}
         <div className="border-t p-4">

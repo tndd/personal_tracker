@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { TrackForm } from "@/components/track/track-form";
 import { TrackCard } from "@/components/track/track-card";
+import { TrackSidebarContent } from "@/components/track/track-sidebar-content";
+import { useSidebarContent } from "@/contexts/sidebar-content-context";
 import { ArrowUp, Loader2 } from "lucide-react";
 
 // ダミーデータを生成する関数（決定的な生成でHydration errorを防ぐ）
@@ -63,6 +65,8 @@ const generateMockTracks = (count: number, startIndex: number, baseTime?: number
 };
 
 export default function TrackPage() {
+  const { setSidebarContent } = useSidebarContent();
+
   // 基準時刻を保存（Hydration errorを防ぐため）
   const baseTimeRef = useRef(Date.now());
 
@@ -74,6 +78,10 @@ export default function TrackPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const loadButtonRef = useRef<HTMLDivElement>(null);
   const isLoadingRef = useRef(false); // ローディング中フラグ（同期的にチェック可能）
+
+  // フィルター状態
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const handleSubmit = (data: { memo: string; condition: number; tagIds: string[] }) => {
     const newTrack = {
@@ -137,6 +145,21 @@ export default function TrackPage() {
     });
   }, [hasMore, oldestIndex]);
 
+  // サイドバーコンテンツを設定
+  useEffect(() => {
+    setSidebarContent(
+      <TrackSidebarContent
+        selectedTagIds={selectedTagIds}
+        onTagsChange={setSelectedTagIds}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+      />
+    );
+
+    // クリーンアップ時にサイドバーコンテンツをクリア
+    return () => setSidebarContent(null);
+  }, [selectedTagIds, searchQuery, setSidebarContent]);
+
   // 初回レンダリング時にスクロールを最下部に移動
   useEffect(() => {
     const container = containerRef.current;
@@ -175,8 +198,36 @@ export default function TrackPage() {
     };
   }, [loadMoreTracks, hasMore]);
 
+  // フィルタリング
+  const filteredTracks = useMemo(() => {
+    let result = tracks;
+
+    // 検索クエリでフィルター
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter((track) => {
+        // メモで検索
+        if (track.memo.toLowerCase().includes(query)) {
+          return true;
+        }
+        // タグ名で検索
+        return track.tags.some((tag) => tag.name.toLowerCase().includes(query));
+      });
+    }
+
+    // タグIDでフィルター
+    if (selectedTagIds.length > 0) {
+      result = result.filter((track) => {
+        // 選択されたタグのいずれかを持っているか
+        return track.tags.some((tag) => selectedTagIds.includes(tag.id));
+      });
+    }
+
+    return result;
+  }, [tracks, searchQuery, selectedTagIds]);
+
   // Slack風：古いものが上、新しいものが下
-  const displayTracks = [...tracks].reverse();
+  const displayTracks = [...filteredTracks].reverse();
 
   return (
     <div className="mx-auto max-w-3xl h-full flex flex-col">

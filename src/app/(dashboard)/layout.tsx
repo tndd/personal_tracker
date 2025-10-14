@@ -3,17 +3,20 @@
 import { useState } from "react";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Menu } from "lucide-react";
+import { SidebarContentProvider, useSidebarContent } from "@/contexts/sidebar-content-context";
 
-export default function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const { sidebarContent } = useSidebarContent();
 
   return (
     <div className="flex h-screen overflow-hidden">
-      <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+      <Sidebar
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+      >
+        {sidebarContent}
+      </Sidebar>
       <main className="flex-1 overflow-hidden bg-gray-50">
         {/* モバイル用ヘッダー（ハンバーガーメニュー） */}
         <div className="lg:hidden flex items-center h-16 border-b bg-white px-4">
@@ -33,5 +36,17 @@ export default function DashboardLayout({
         </div>
       </main>
     </div>
+  );
+}
+
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <SidebarContentProvider>
+      <DashboardLayoutContent>{children}</DashboardLayoutContent>
+    </SidebarContentProvider>
   );
 }

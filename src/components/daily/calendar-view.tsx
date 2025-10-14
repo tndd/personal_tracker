@@ -27,6 +27,7 @@ interface CalendarViewProps {
   dailies: Daily[];
   onEdit?: (date: string) => void;
   onAddNew?: (date: string) => void;
+  selectedCondition?: number | null;
 }
 
 // コンディションの色設定
@@ -38,7 +39,12 @@ const conditionColors = {
   "-2": "bg-red-600",
 } as const;
 
-export function CalendarView({ dailies, onEdit, onAddNew }: CalendarViewProps) {
+export function CalendarView({
+  dailies,
+  onEdit,
+  onAddNew,
+  selectedCondition,
+}: CalendarViewProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
   // dailiesを日付でマップ化
@@ -143,6 +149,14 @@ export function CalendarView({ dailies, onEdit, onAddNew }: CalendarViewProps) {
             // クリック可能：既存の日記がある または 今日以前の当月の日
             const isClickable = daily || (isNotFuture && isCurrentMonth);
 
+            // フィルタリング：選択されたコンディションと一致するか
+            const isHighlighted =
+              selectedCondition !== null
+                ? daily?.condition === selectedCondition
+                : false;
+            const isFaded =
+              selectedCondition !== null && daily && daily.condition !== selectedCondition;
+
             return (
               <button
                 key={i}
@@ -150,10 +164,12 @@ export function CalendarView({ dailies, onEdit, onAddNew }: CalendarViewProps) {
                 disabled={!isClickable}
                 className={`
                   relative aspect-square border-b border-r p-1 sm:p-2
-                  transition-colors
+                  transition-all
                   ${!isCurrentMonth ? "bg-gray-50" : ""}
                   ${isClickable ? "hover:bg-gray-100 cursor-pointer" : "cursor-default"}
                   ${isToday ? "ring-1 sm:ring-2 ring-blue-500 ring-inset" : ""}
+                  ${isFaded ? "opacity-30" : ""}
+                  ${isHighlighted ? "ring-2 ring-yellow-400 bg-yellow-50" : ""}
                 `}
               >
                 {/* 日付 */}

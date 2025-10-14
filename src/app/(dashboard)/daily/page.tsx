@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { DailyCard } from "@/components/daily/daily-card";
 import { CalendarView } from "@/components/daily/calendar-view";
 import { DailyFormDialog } from "@/components/daily/daily-form-dialog";
+import { DailySidebarContent } from "@/components/daily/daily-sidebar-content";
+import { useSidebarContent } from "@/contexts/sidebar-content-context";
 import { ArrowUp, LayoutGrid, List, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
@@ -38,20 +40,44 @@ const mockDailies = [
 ];
 
 export default function DailyPage() {
+  const { setSidebarContent } = useSidebarContent();
+
   const [dailies, setDailies] = useState(mockDailies);
   const [viewMode, setViewMode] = useState<"list" | "calendar">("calendar");
   const [showFormDialog, setShowFormDialog] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>("");
+  const [selectedCondition, setSelectedCondition] = useState<number | null>(null);
 
   // 今日の日付
   const today = format(new Date(), "yyyy-MM-dd");
   // 今日の日記が既に存在するかチェック
   const hasTodayEntry = dailies.some((daily) => daily.date === today);
 
+  // サイドバーコンテンツを設定
+  useEffect(() => {
+    setSidebarContent(
+      <DailySidebarContent
+        selectedCondition={selectedCondition}
+        onConditionChange={setSelectedCondition}
+      />
+    );
+
+    // クリーンアップ時にサイドバーコンテンツをクリア
+    return () => setSidebarContent(null);
+  }, [selectedCondition, setSidebarContent]);
+
   const handleOpenForm = (date: string) => {
     setSelectedDate(date);
     setShowFormDialog(true);
   };
+
+  // フィルタリング（リスト表示用）
+  const filteredDailies = useMemo(() => {
+    if (selectedCondition === null) {
+      return dailies;
+    }
+    return dailies.filter((daily) => daily.condition === selectedCondition);
+  }, [dailies, selectedCondition]);
 
   const handleSubmit = (data: { memo: string; condition: number }) => {
     const updatedDaily = {
@@ -121,26 +147,37 @@ export default function DailyPage() {
           </div>
 
           {/* 日記一覧 */}
-          <div className="space-y-3">
-            {dailies.map((daily) => (
-              <DailyCard
-                key={daily.date}
-                {...daily}
-                onEdit={() => handleOpenForm(daily.date)}
-              />
-            ))}
-          </div>
+          {filteredDailies.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              {selectedCondition !== null
+                ? "該当するコンディションの日記がありません"
+                : "日記がありません"}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {filteredDailies.map((daily) => (
+                <DailyCard
+                  key={daily.date}
+                  {...daily}
+                  onEdit={() => handleOpenForm(daily.date)}
+                />
+              ))}
+            </div>
+          )}
 
           {/* 無限スクロール用のセンチネル */}
-          <div className="h-20 flex items-center justify-center text-sm text-gray-400">
-            これより古い日記はありません
-          </div>
+          {filteredDailies.length > 0 && (
+            <div className="h-20 flex items-center justify-center text-sm text-gray-400">
+              これより古い日記はありません
+            </div>
+          )}
         </>
       ) : (
         <CalendarView
           dailies={dailies}
           onEdit={handleOpenForm}
           onAddNew={handleOpenForm}
+          selectedCondition={selectedCondition}
         />
       )}
 
