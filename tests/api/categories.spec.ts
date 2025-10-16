@@ -68,7 +68,9 @@ test.describe("categories API", () => {
 
   test("カテゴリの並び替えが連番制約を満たす", async ({ request }) => {
     const createdIds: string[] = [];
-    for (const [index, payload] of ["コンディション", "症状", "生活"].entries()) {
+    const payloads = ["コンディション", "症状", "生活"];
+    for (let index = 0; index < payloads.length; index++) {
+      const payload = payloads[index];
       const response = await request.post("/api/categories", {
         data: { name: payload, color: `#${index}${index}${index}${index}${index}${index}` },
       });

@@ -12,10 +12,10 @@ for (const file of envFiles) {
 }
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3002";
-const testDatabaseUrl = process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL;
+const testDatabaseUrl = process.env.DATABASE_URL_TEST;
 
 if (!testDatabaseUrl) {
-  throw new Error("TEST_DATABASE_URL もしくは DATABASE_URL を設定してください。");
+  throw new Error("DATABASE_URL_TEST を設定してください。");
 }
 
 process.env.DATABASE_URL = testDatabaseUrl;
