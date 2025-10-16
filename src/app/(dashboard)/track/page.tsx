@@ -150,13 +150,21 @@ export default function TrackPage() {
       const data = await response.json();
       const newTracks: Track[] = data.items;
 
-      // 各トラックのタグ情報を取得
-      const tracksWithTags: TrackWithTags[] = await Promise.all(
-        newTracks.map(async (track) => ({
-          ...track,
-          tags: await fetchTagsInfo(track.tagIds || []),
-        }))
+      // すべてのトラックから一意のタグIDを収集
+      const allTagIds = Array.from(
+        new Set(newTracks.flatMap((track) => track.tagIds || []))
       );
+
+      // タグ情報を一度だけ取得してキャッシュに格納
+      await fetchTagsInfo(allTagIds);
+
+      // 各トラックにタグ情報を付与（キャッシュから取得）
+      const tracksWithTags: TrackWithTags[] = newTracks.map((track) => ({
+        ...track,
+        tags: (track.tagIds || [])
+          .map((id) => tagsCache.get(id))
+          .filter((tag): tag is Tag & { category: Category } => tag !== undefined),
+      }));
 
       setTracks((prev) => [...prev, ...tracksWithTags]);
       setNextCursor(data.nextCursor);
