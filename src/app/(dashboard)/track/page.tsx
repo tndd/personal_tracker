@@ -142,6 +142,8 @@ export default function TrackPage() {
       if (!response.ok) {
         console.error("トラック取得エラー");
         setHasMore(false);
+        isLoadingRef.current = false;
+        setIsLoading(false);
         return;
       }
 
