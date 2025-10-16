@@ -39,6 +39,7 @@ export default function TrackPage() {
   // フィルター状態
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedConditions, setSelectedConditions] = useState<number[]>([]);
 
   // タグ情報を取得してキャッシュする
   const fetchTagsInfo = useCallback(async (tagIds: string[]) => {
@@ -282,11 +283,13 @@ export default function TrackPage() {
         onTagsChange={setSelectedTagIds}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
+        selectedConditions={selectedConditions}
+        onConditionsChange={setSelectedConditions}
       />
     );
 
     return () => setSidebarContent(null);
-  }, [selectedTagIds, searchQuery, setSidebarContent]);
+  }, [selectedTagIds, searchQuery, selectedConditions, setSidebarContent]);
 
   // 初回ロード完了時のみスクロールを最下部に移動
   useEffect(() => {
@@ -347,6 +350,14 @@ export default function TrackPage() {
       });
     }
 
+    // コンディションでフィルター
+    if (selectedConditions.length > 0) {
+      result = result.filter((track) => {
+        // 選択されたコンディションのいずれかに一致するか
+        return selectedConditions.includes(track.condition ?? 0);
+      });
+    }
+
     // タグIDでフィルター
     if (selectedTagIds.length > 0) {
       result = result.filter((track) => {
@@ -356,7 +367,7 @@ export default function TrackPage() {
     }
 
     return result;
-  }, [tracks, searchQuery, selectedTagIds]);
+  }, [tracks, searchQuery, selectedConditions, selectedTagIds]);
 
   // Slack風：古いものが上、新しいものが下
   const displayTracks = [...filteredTracks].reverse();
