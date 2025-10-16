@@ -14,10 +14,20 @@ import postgres from 'postgres';
 import { categories, tags, tracks, dailies } from '../src/lib/db/schema';
 
 // 環境変数のチェック
-const environment = process.env.ENVIRONMENT || 'TEST';
-console.log(`🔧 環境: ${environment}`);
+const resolvedEnvironment = (() => {
+  const raw = process.env.ENVIRONMENT;
+  if (!raw) {
+    console.log('ℹ️  ENVIRONMENT が未指定だったため STG を適用します');
+    process.env.ENVIRONMENT = 'STG';
+    return 'STG';
+  }
+  const upper = raw.toUpperCase();
+  process.env.ENVIRONMENT = upper;
+  return upper;
+})();
+console.log(`🔧 環境: ${resolvedEnvironment}`);
 
-if (environment !== 'STG') {
+if (resolvedEnvironment !== 'STG') {
   console.error('❌ エラー: このスクリプトはSTG環境でのみ実行できます');
   console.error('   実行方法: ENVIRONMENT=STG npm run seed:stg');
   process.exit(1);
