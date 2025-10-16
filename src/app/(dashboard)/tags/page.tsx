@@ -3,39 +3,60 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronUp, Plus, Archive, Edit2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Plus, Archive, Edit2, ArchiveRestore } from "lucide-react";
 import { TagFormDialog } from "@/components/tags/tag-form-dialog";
 import { CategoryFormDialog } from "@/components/tags/category-form-dialog";
+import { cn } from "@/lib/utils";
+
+// 型定義
+type Tag = {
+  id: string;
+  name: string;
+  color: string;
+  sortOrder: number;
+  archived: boolean;
+};
+
+type Category = {
+  id: string;
+  name: string;
+  color: string;
+  tags: Tag[];
+  archived: boolean;
+};
 
 // モックデータ
-const mockCategories = [
+const mockCategories: Category[] = [
   {
     id: "cat-1",
     name: "服薬",
     color: "#3B82F6",
+    archived: false,
     tags: [
-      { id: "tag-1", name: "デパス", color: "#3B82F6", sortOrder: 0 },
-      { id: "tag-2", name: "ワイパックス", color: "#3B82F6", sortOrder: 1 },
-      { id: "tag-3", name: "リボトリール", color: "#3B82F6", sortOrder: 2 },
+      { id: "tag-1", name: "デパス", color: "#3B82F6", sortOrder: 0, archived: false },
+      { id: "tag-2", name: "ワイパックス", color: "#3B82F6", sortOrder: 1, archived: false },
+      { id: "tag-3", name: "リボトリール", color: "#3B82F6", sortOrder: 2, archived: false },
     ],
   },
   {
     id: "cat-2",
     name: "症状",
     color: "#EF4444",
+    archived: false,
     tags: [
-      { id: "tag-4", name: "頭痛", color: "#EF4444", sortOrder: 0 },
-      { id: "tag-5", name: "めまい", color: "#EF4444", sortOrder: 1 },
-      { id: "tag-6", name: "吐き気", color: "#EF4444", sortOrder: 2 },
+      { id: "tag-4", name: "頭痛", color: "#EF4444", sortOrder: 0, archived: false },
+      { id: "tag-5", name: "めまい", color: "#EF4444", sortOrder: 1, archived: false },
+      { id: "tag-6", name: "吐き気", color: "#EF4444", sortOrder: 2, archived: false },
     ],
   },
   {
     id: "cat-3",
     name: "運動",
     color: "#10B981",
+    archived: false,
     tags: [
-      { id: "tag-7", name: "散歩", color: "#10B981", sortOrder: 0 },
-      { id: "tag-8", name: "ジョギング", color: "#10B981", sortOrder: 1 },
+      { id: "tag-7", name: "散歩", color: "#10B981", sortOrder: 0, archived: false },
+      { id: "tag-8", name: "ジョギング", color: "#10B981", sortOrder: 1, archived: false },
     ],
   },
 ];
@@ -45,6 +66,9 @@ export default function TagsPage() {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
     new Set(categories.map((c) => c.id))
   );
+
+  // タブの選択状態管理 ("all" | "archived" | categoryId)
+  const [selectedTab, setSelectedTab] = useState<string>("all");
 
   // ダイアログの状態管理
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
@@ -86,6 +110,65 @@ export default function TagsPage() {
     );
   };
 
+  // カテゴリのアーカイブ/復元
+  const toggleCategoryArchive = (categoryId: string) => {
+    setCategories((prev) =>
+      prev.map((cat) =>
+        cat.id === categoryId
+          ? { ...cat, archived: !cat.archived }
+          : cat
+      )
+    );
+  };
+
+  // タグのアーカイブ/復元
+  const toggleTagArchive = (categoryId: string, tagId: string) => {
+    setCategories((prev) =>
+      prev.map((cat) => {
+        if (cat.id !== categoryId) return cat;
+
+        return {
+          ...cat,
+          tags: cat.tags.map((tag) =>
+            tag.id === tagId
+              ? { ...tag, archived: !tag.archived }
+              : tag
+          ),
+        };
+      })
+    );
+  };
+
+  // 表示するカテゴリをフィルタリング
+  const getFilteredCategories = (): Category[] => {
+    if (selectedTab === "all") {
+      // 非アーカイブのカテゴリのみ表示
+      return categories
+        .filter((cat) => !cat.archived)
+        .map((cat) => ({
+          ...cat,
+          tags: cat.tags.filter((tag) => !tag.archived),
+        }));
+    } else if (selectedTab === "archived") {
+      // アーカイブされたカテゴリまたはアーカイブされたタグを持つカテゴリを表示
+      return categories
+        .filter((cat) => cat.archived || cat.tags.some((tag) => tag.archived))
+        .map((cat) => ({
+          ...cat,
+          tags: cat.archived ? cat.tags : cat.tags.filter((tag) => tag.archived),
+        }));
+    } else {
+      // 特定のカテゴリのみ表示
+      const category = categories.find((cat) => cat.id === selectedTab);
+      if (!category) return [];
+      return [
+        {
+          ...category,
+          tags: category.tags.filter((tag) => !tag.archived),
+        },
+      ];
+    }
+  };
 
   // タグ追加ダイアログを開く
   const openTagDialog = (categoryId: string) => {
@@ -186,10 +269,16 @@ export default function TagsPage() {
     }
   };
 
+  // フィルタリングされたカテゴリを取得
+  const filteredCategories = getFilteredCategories();
+
+  // 非アーカイブのカテゴリを取得（サイドバー表示用）
+  const activeCategories = categories.filter((cat) => !cat.archived);
+
   return (
-    <div className="mx-auto max-w-4xl space-y-4 sm:space-y-6">
+    <div className="mx-auto max-w-6xl">
       {/* ヘッダー */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4 sm:mb-6">
         <div>
           <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">Tags</h1>
           <p className="mt-1 text-sm text-gray-500">カテゴリとタグの管理</p>
@@ -201,89 +290,122 @@ export default function TagsPage() {
         </Button>
       </div>
 
-      {/* カテゴリ一覧 */}
-      <div className="space-y-3">
-        {categories.map((category) => {
-          const isExpanded = expandedCategories.has(category.id);
+      {/* メインコンテンツ: サイドバー + コンテンツ */}
+      <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
+        {/* 左側サイドバー */}
+        <aside className="w-full sm:w-48 flex-shrink-0">
+          <Card className="overflow-hidden">
+            <CardContent className="p-2">
+              <nav className="space-y-1">
+                {/* ALL タブ */}
+                <button
+                  onClick={() => setSelectedTab("all")}
+                  className={cn(
+                    "w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors",
+                    selectedTab === "all"
+                      ? "bg-blue-50 text-blue-700"
+                      : "text-gray-700 hover:bg-gray-100"
+                  )}
+                >
+                  ALL
+                </button>
 
-          return (
-            <Card key={category.id}>
-              <CardHeader
-                className="cursor-pointer hover:bg-gray-50 transition-colors"
-                onClick={() => toggleCategory(category.id)}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                {/* 区切り線 */}
+                {activeCategories.length > 0 && (
+                  <div className="border-t border-gray-200 my-2" />
+                )}
+
+                {/* 各カテゴリ */}
+                {activeCategories.map((category) => (
+                  <button
+                    key={category.id}
+                    onClick={() => setSelectedTab(category.id)}
+                    className={cn(
+                      "w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2",
+                      selectedTab === category.id
+                        ? "bg-blue-50 text-blue-700"
+                        : "text-gray-700 hover:bg-gray-100"
+                    )}
+                  >
                     <div
-                      className="h-4 w-4 rounded flex-shrink-0"
+                      className="h-3 w-3 rounded flex-shrink-0"
                       style={{ backgroundColor: category.color }}
                     />
-                    <CardTitle className="text-base sm:text-lg truncate">{category.name}</CardTitle>
-                    <span className="text-xs sm:text-sm text-gray-500 flex-shrink-0">
-                      ({category.tags.length})
-                    </span>
-                  </div>
+                    <span className="truncate">{category.name}</span>
+                  </button>
+                ))}
 
-                  <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 sm:h-8 sm:w-8 hidden sm:flex"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openCategoryEditDialog(category.id);
-                      }}
-                    >
-                      <Edit2 className="h-3 w-3 sm:h-4 sm:w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-8 sm:w-8 hidden sm:flex">
-                      <Archive className="h-3 w-3 sm:h-4 sm:w-4" />
-                    </Button>
-                    {isExpanded ? (
-                      <ChevronUp className="h-4 w-4 sm:h-5 sm:w-5 text-gray-500" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4 sm:h-5 sm:w-5 text-gray-500" />
-                    )}
-                  </div>
-                </div>
-              </CardHeader>
+                {/* 区切り線 */}
+                <div className="border-t border-gray-200 my-2" />
 
-              {isExpanded && (
-                <CardContent className="space-y-2">
-                  {/* タグ一覧 */}
-                  {category.tags.map((tag, index) => (
-                    <div
-                      key={tag.id}
-                      className="flex items-center justify-between rounded-md border p-2 sm:p-3 hover:bg-gray-50 gap-2"
-                    >
-                      <span
-                        className="inline-flex items-center rounded-md px-2 py-1 text-xs sm:text-sm font-medium truncate"
-                        style={{
-                          backgroundColor: `${tag.color}20`,
-                          color: tag.color,
-                        }}
-                      >
-                        {tag.name}
-                      </span>
+                {/* Archived タブ */}
+                <button
+                  onClick={() => setSelectedTab("archived")}
+                  className={cn(
+                    "w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors",
+                    selectedTab === "archived"
+                      ? "bg-blue-50 text-blue-700"
+                      : "text-gray-700 hover:bg-gray-100"
+                  )}
+                >
+                  Archived
+                </button>
+              </nav>
+            </CardContent>
+          </Card>
+        </aside>
 
-                      <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
+        {/* 右側コンテンツ */}
+        <div className="flex-1 min-w-0 space-y-3">
+          {filteredCategories.length === 0 ? (
+            <Card>
+              <CardContent className="py-8 text-center text-gray-500">
+                <p className="text-sm">
+                  {selectedTab === "archived"
+                    ? "アーカイブされたアイテムはありません"
+                    : "カテゴリがありません"}
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            filteredCategories.map((category) => {
+              const isExpanded = expandedCategories.has(category.id);
+              const isArchived = category.archived;
+
+              return (
+                <Card key={category.id}>
+                  <CardHeader
+                    className="cursor-pointer hover:bg-gray-50 transition-colors"
+                    onClick={() => toggleCategory(category.id)}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                        <div
+                          className="h-4 w-4 rounded flex-shrink-0"
+                          style={{ backgroundColor: category.color }}
+                        />
+                        <CardTitle className="text-base sm:text-lg truncate">
+                          {category.name}
+                          {isArchived && (
+                            <span className="ml-2 text-xs text-gray-500">(Archived)</span>
+                          )}
+                        </CardTitle>
+                        <span className="text-xs sm:text-sm text-gray-500 flex-shrink-0">
+                          ({category.tags.length})
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7 sm:h-8 sm:w-8"
-                          disabled={index === 0}
-                          onClick={() => moveTag(category.id, index, "up")}
+                          className="h-7 w-7 sm:h-8 sm:w-8 hidden sm:flex"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openCategoryEditDialog(category.id);
+                          }}
                         >
-                          <ChevronUp className="h-3 w-3 sm:h-4 sm:w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 sm:h-8 sm:w-8"
-                          disabled={index === category.tags.length - 1}
-                          onClick={() => moveTag(category.id, index, "down")}
-                        >
-                          <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4" />
+                          <Edit2 className="h-3 w-3 sm:h-4 sm:w-4" />
                         </Button>
                         <Button
                           variant="ghost"
@@ -291,36 +413,122 @@ export default function TagsPage() {
                           className="h-7 w-7 sm:h-8 sm:w-8 hidden sm:flex"
                           onClick={(e) => {
                             e.stopPropagation();
-                            openTagEditDialog(category.id, tag.id);
+                            toggleCategoryArchive(category.id);
                           }}
+                          title={isArchived ? "復元" : "アーカイブ"}
                         >
-                          <Edit2 className="h-3 w-3 sm:h-4 sm:w-4" />
+                          {isArchived ? (
+                            <ArchiveRestore className="h-3 w-3 sm:h-4 sm:w-4" />
+                          ) : (
+                            <Archive className="h-3 w-3 sm:h-4 sm:w-4" />
+                          )}
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-8 sm:w-8 hidden sm:flex">
-                          <Archive className="h-3 w-3 sm:h-4 sm:w-4" />
-                        </Button>
+                        {isExpanded ? (
+                          <ChevronUp className="h-4 w-4 sm:h-5 sm:w-5 text-gray-500" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4 sm:h-5 sm:w-5 text-gray-500" />
+                        )}
                       </div>
                     </div>
-                  ))}
+                  </CardHeader>
 
-                  {/* タグ追加ボタン */}
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="w-full gap-2"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openTagDialog(category.id);
-                    }}
-                  >
-                    <Plus className="h-4 w-4" />
-                    タグ追加
-                  </Button>
-                </CardContent>
-              )}
-            </Card>
-          );
-        })}
+                  {isExpanded && (
+                    <CardContent className="space-y-2">
+                      {/* タグ一覧 */}
+                      {category.tags.map((tag, index) => {
+                        const isTagArchived = tag.archived;
+
+                        return (
+                          <div
+                            key={tag.id}
+                            className="flex items-center justify-between rounded-md border p-2 sm:p-3 hover:bg-gray-50 gap-2"
+                          >
+                            <span
+                              className="inline-flex items-center rounded-md px-2 py-1 text-xs sm:text-sm font-medium truncate"
+                              style={{
+                                backgroundColor: `${tag.color}20`,
+                                color: tag.color,
+                              }}
+                            >
+                              {tag.name}
+                              {isTagArchived && (
+                                <span className="ml-2 text-xs text-gray-500">(Archived)</span>
+                              )}
+                            </span>
+
+                            <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 sm:h-8 sm:w-8"
+                                disabled={index === 0}
+                                onClick={() => moveTag(category.id, index, "up")}
+                              >
+                                <ChevronUp className="h-3 w-3 sm:h-4 sm:w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 sm:h-8 sm:w-8"
+                                disabled={index === category.tags.length - 1}
+                                onClick={() => moveTag(category.id, index, "down")}
+                              >
+                                <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 sm:h-8 sm:w-8 hidden sm:flex"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openTagEditDialog(category.id, tag.id);
+                                }}
+                              >
+                                <Edit2 className="h-3 w-3 sm:h-4 sm:w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 sm:h-8 sm:w-8 hidden sm:flex"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleTagArchive(category.id, tag.id);
+                                }}
+                                title={isTagArchived ? "復元" : "アーカイブ"}
+                              >
+                                {isTagArchived ? (
+                                  <ArchiveRestore className="h-3 w-3 sm:h-4 sm:w-4" />
+                                ) : (
+                                  <Archive className="h-3 w-3 sm:h-4 sm:w-4" />
+                                )}
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      {/* タグ追加ボタン（アーカイブされていないカテゴリのみ） */}
+                      {!isArchived && (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="w-full gap-2"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openTagDialog(category.id);
+                          }}
+                        >
+                          <Plus className="h-4 w-4" />
+                          タグ追加
+                        </Button>
+                      )}
+                    </CardContent>
+                  )}
+                </Card>
+              );
+            })
+          )}
+        </div>
       </div>
 
       {/* カテゴリ追加/編集ダイアログ */}
