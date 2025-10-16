@@ -29,16 +29,13 @@ export function ConditionSelectorPopup({
   };
 
   return (
-    <>
-      {/* 背景クリックで閉じる */}
+    <div className="fixed inset-0 z-50">
       <div
-        className="fixed inset-0 z-40"
+        className="absolute inset-0"
         onClick={onClose}
       />
-
-      {/* ポップアップ */}
       <Card
-        className="absolute z-50 w-48 shadow-lg"
+        className="absolute z-10 w-48 shadow-lg"
         style={{
           bottom: position?.bottom || 0,
           right: position?.right || 0,
@@ -66,6 +63,6 @@ export function ConditionSelectorPopup({
           </div>
         </div>
       </Card>
-    </>
+    </div>
   );
 }
