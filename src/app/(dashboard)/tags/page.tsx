@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronUp, Plus, Archive, Edit2, ArchiveRestore } from "lucide-react";
 import { TagFormDialog } from "@/components/tags/tag-form-dialog";
 import { CategoryFormDialog } from "@/components/tags/category-form-dialog";
 import { cn } from "@/lib/utils";
+import { useSidebarContent } from "@/contexts/sidebar-content-context";
 
 // 型定義
 type Tag = {
@@ -69,6 +70,9 @@ export default function TagsPage() {
 
   // タブの選択状態管理 ("all" | "archived" | categoryId)
   const [selectedTab, setSelectedTab] = useState<string>("all");
+
+  // サイドバーコンテンツの設定
+  const { setSidebarContent } = useSidebarContent();
 
   // ダイアログの状態管理
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
@@ -275,10 +279,78 @@ export default function TagsPage() {
   // 非アーカイブのカテゴリを取得（サイドバー表示用）
   const activeCategories = categories.filter((cat) => !cat.archived);
 
+  // サイドバーにタグナビゲーションを表示
+  useEffect(() => {
+    const activeCats = categories.filter((cat) => !cat.archived);
+
+    setSidebarContent(
+      <nav className="space-y-1">
+        {/* ALL タブ */}
+        <button
+          onClick={() => setSelectedTab("all")}
+          className={cn(
+            "w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors",
+            selectedTab === "all"
+              ? "bg-white text-blue-600 shadow-sm"
+              : "text-gray-700 hover:bg-gray-100"
+          )}
+        >
+          ALL
+        </button>
+
+        {/* 区切り線 */}
+        {activeCats.length > 0 && (
+          <div className="border-t border-gray-200 my-2" />
+        )}
+
+        {/* 各カテゴリ */}
+        {activeCats.map((category) => (
+          <button
+            key={category.id}
+            onClick={() => setSelectedTab(category.id)}
+            className={cn(
+              "w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2",
+              selectedTab === category.id
+                ? "bg-white text-blue-600 shadow-sm"
+                : "text-gray-700 hover:bg-gray-100"
+            )}
+          >
+            <div
+              className="h-3 w-3 rounded flex-shrink-0"
+              style={{ backgroundColor: category.color }}
+            />
+            <span className="truncate">{category.name}</span>
+          </button>
+        ))}
+
+        {/* 区切り線 */}
+        <div className="border-t border-gray-200 my-2" />
+
+        {/* Archived タブ */}
+        <button
+          onClick={() => setSelectedTab("archived")}
+          className={cn(
+            "w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors",
+            selectedTab === "archived"
+              ? "bg-white text-blue-600 shadow-sm"
+              : "text-gray-700 hover:bg-gray-100"
+          )}
+        >
+          Archived
+        </button>
+      </nav>
+    );
+
+    // クリーンアップ: コンポーネントのアンマウント時にサイドバーコンテンツをクリア
+    return () => {
+      setSidebarContent(null);
+    };
+  }, [selectedTab, categories, setSidebarContent]);
+
   return (
-    <div className="mx-auto max-w-6xl">
+    <div className="mx-auto max-w-4xl space-y-4 sm:space-y-6">
       {/* ヘッダー */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4 sm:mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">Tags</h1>
           <p className="mt-1 text-sm text-gray-500">カテゴリとタグの管理</p>
@@ -290,73 +362,8 @@ export default function TagsPage() {
         </Button>
       </div>
 
-      {/* メインコンテンツ: サイドバー + コンテンツ */}
-      <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
-        {/* 左側サイドバー */}
-        <aside className="w-full sm:w-48 flex-shrink-0">
-          <Card className="overflow-hidden">
-            <CardContent className="p-2">
-              <nav className="space-y-1">
-                {/* ALL タブ */}
-                <button
-                  onClick={() => setSelectedTab("all")}
-                  className={cn(
-                    "w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors",
-                    selectedTab === "all"
-                      ? "bg-blue-50 text-blue-700"
-                      : "text-gray-700 hover:bg-gray-100"
-                  )}
-                >
-                  ALL
-                </button>
-
-                {/* 区切り線 */}
-                {activeCategories.length > 0 && (
-                  <div className="border-t border-gray-200 my-2" />
-                )}
-
-                {/* 各カテゴリ */}
-                {activeCategories.map((category) => (
-                  <button
-                    key={category.id}
-                    onClick={() => setSelectedTab(category.id)}
-                    className={cn(
-                      "w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2",
-                      selectedTab === category.id
-                        ? "bg-blue-50 text-blue-700"
-                        : "text-gray-700 hover:bg-gray-100"
-                    )}
-                  >
-                    <div
-                      className="h-3 w-3 rounded flex-shrink-0"
-                      style={{ backgroundColor: category.color }}
-                    />
-                    <span className="truncate">{category.name}</span>
-                  </button>
-                ))}
-
-                {/* 区切り線 */}
-                <div className="border-t border-gray-200 my-2" />
-
-                {/* Archived タブ */}
-                <button
-                  onClick={() => setSelectedTab("archived")}
-                  className={cn(
-                    "w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors",
-                    selectedTab === "archived"
-                      ? "bg-blue-50 text-blue-700"
-                      : "text-gray-700 hover:bg-gray-100"
-                  )}
-                >
-                  Archived
-                </button>
-              </nav>
-            </CardContent>
-          </Card>
-        </aside>
-
-        {/* 右側コンテンツ */}
-        <div className="flex-1 min-w-0 space-y-3">
+      {/* カテゴリ一覧 */}
+      <div className="space-y-3">
           {filteredCategories.length === 0 ? (
             <Card>
               <CardContent className="py-8 text-center text-gray-500">
@@ -528,7 +535,6 @@ export default function TagsPage() {
               );
             })
           )}
-        </div>
       </div>
 
       {/* カテゴリ追加/編集ダイアログ */}
