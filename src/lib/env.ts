@@ -11,72 +11,59 @@ type Environment = z.infer<typeof Environment>;
  * サーバー側のみで利用する値なのでここでまとめて検証する。
  */
 const serverEnvSchema = z.object({
-  DATABASE_URL: z.string().min(1, "DATABASE_URL を設定してください").refine(
-    (val) => val.startsWith("postgres://") || val.startsWith("postgresql://"),
-    { message: "DATABASE_URL はPostgreSQLのURL形式で指定してください" }
-  ),
-  ENVIRONMENT: Environment.default("TEST"),
-  // PROD環境へのアクセスには明示的な許可が必要
-  ALLOW_PROD_ACCESS: z
+  DATABASE_URL_TEST: z.string().min(1, "DATABASE_URL_TEST を設定してください"),
+  DATABASE_URL_STG: z.string().min(1, "DATABASE_URL_STG を設定してください"),
+  DATABASE_URL_PROD: z.string().min(1, "DATABASE_URL_PROD を設定してください"),
+  PROD_CONFIRMED: z
     .string()
     .optional()
     .transform((val) => val === "true"),
 });
 
 /**
- * 環境とデータベースURLの整合性をチェック
+ * 環境変数から適切なDATABASE_URLを選択し、安全性をチェック
  */
-function validateEnvironment(env: z.infer<typeof serverEnvSchema>) {
-  const dbUrl = env.DATABASE_URL;
-  const environment = env.ENVIRONMENT;
+function selectDatabaseUrl(rawEnv: z.infer<typeof serverEnvSchema>) {
+  // ENVIRONMENTが指定されていない場合はTEST
+  const environment = (process.env.ENVIRONMENT as Environment) || "TEST";
 
-  // データベース名から環境を推測
-  const isProdDb = dbUrl.includes("/personal_tracker") && !dbUrl.includes("_test") && !dbUrl.includes("_stg");
-  const isStgDb = dbUrl.includes("/personal_tracker_stg");
-  const isTestDb = dbUrl.includes("/personal_tracker_test");
+  let databaseUrl: string;
 
-  // PROD環境の安全装置
-  if (environment === "PROD") {
-    if (!env.ALLOW_PROD_ACCESS) {
-      throw new Error(
-        "PROD環境へのアクセスには ALLOW_PROD_ACCESS=true の設定が必要です。\n" +
-        "本当にPROD環境に接続する場合のみ、この変数を設定してください。"
-      );
-    }
-    if (!isProdDb) {
-      throw new Error(
-        `ENVIRONMENT=PROD ですが、DATABASE_URLが本番用ではありません。\n` +
-        `期待: personal_tracker\n` +
-        `実際: ${dbUrl}`
-      );
-    }
-    console.warn("⚠️  警告: PROD環境に接続しています");
+  switch (environment) {
+    case "PROD":
+      // PROD環境への接続には明示的な確認が必要
+      if (!rawEnv.PROD_CONFIRMED) {
+        throw new Error(
+          "❌ PROD環境への接続にはPROD_CONFIRMED=trueの設定が必要です。\n" +
+          "本当に本番データベースに接続する場合のみ、この変数をtrueに設定してください。"
+        );
+      }
+      databaseUrl = rawEnv.DATABASE_URL_PROD;
+      console.warn("⚠️  警告: PROD環境（本番データベース）に接続しています");
+      break;
+
+    case "STG":
+      databaseUrl = rawEnv.DATABASE_URL_STG;
+      console.log("📦 STG環境（ステージングデータベース）に接続しています");
+      break;
+
+    case "TEST":
+    default:
+      databaseUrl = rawEnv.DATABASE_URL_TEST;
+      console.log("🧪 TEST環境（テストデータベース）に接続しています");
+      break;
   }
 
-  // STG環境のチェック
-  if (environment === "STG") {
-    if (!isStgDb) {
-      throw new Error(
-        `ENVIRONMENT=STG ですが、DATABASE_URLがステージング用ではありません。\n` +
-        `期待: personal_tracker_stg\n` +
-        `実際: ${dbUrl}`
-      );
-    }
+  // データベースURLの形式チェック
+  if (!databaseUrl.startsWith("postgres://") && !databaseUrl.startsWith("postgresql://")) {
+    throw new Error(`DATABASE_URL が PostgreSQL の URL 形式ではありません: ${databaseUrl}`);
   }
 
-  // TEST環境のチェック（デフォルト）
-  if (environment === "TEST") {
-    if (!isTestDb) {
-      throw new Error(
-        `ENVIRONMENT=TEST ですが、DATABASE_URLがテスト用ではありません。\n` +
-        `期待: personal_tracker_test\n` +
-        `実際: ${dbUrl}\n\n` +
-        `開発時に本番DBを使う場合は ENVIRONMENT=PROD と ALLOW_PROD_ACCESS=true を設定してください。`
-      );
-    }
-  }
-
-  return env;
+  return {
+    DATABASE_URL: databaseUrl,
+    ENVIRONMENT: environment,
+    PROD_CONFIRMED: rawEnv.PROD_CONFIRMED,
+  };
 }
 
 /**
@@ -84,4 +71,10 @@ function validateEnvironment(env: z.infer<typeof serverEnvSchema>) {
  * 不正な値の場合は起動時に例外を投げて気づけるようにする。
  */
 const parsedEnv = serverEnvSchema.parse(process.env);
-export const serverEnv = validateEnvironment(parsedEnv);
+const selectedEnv = selectDatabaseUrl(parsedEnv);
+
+export const serverEnv = {
+  DATABASE_URL: selectedEnv.DATABASE_URL,
+  ENVIRONMENT: selectedEnv.ENVIRONMENT,
+  PROD_CONFIRMED: selectedEnv.PROD_CONFIRMED,
+};

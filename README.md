@@ -23,19 +23,26 @@ docker-compose up -d
 `.env` ファイルを作成し、以下の環境変数を設定します：
 
 ```bash
-# 実行環境（TEST/STG/PROD）
-# デフォルト: TEST
-ENVIRONMENT=PROD
+# 各環境のDB接続情報
+DATABASE_URL_TEST="postgresql://postgres:postgres@localhost:5432/personal_tracker_test"
+DATABASE_URL_STG="postgresql://postgres:postgres@localhost:5432/personal_tracker_stg"
+DATABASE_URL_PROD="postgresql://postgres:postgres@localhost:5432/personal_tracker_prod"
 
-# データベースURL
-DATABASE_URL=postgresql://personal_tracker:personal_tracker@localhost:5432/personal_tracker
+# 本番環境への接続確認（trueに設定すると本番DBへの接続を許可）
+PROD_CONFIRMED=false
+```
 
-# PROD環境へのアクセスを許可（開発時のみ）
-# PROD環境に接続する場合は必須
-ALLOW_PROD_ACCESS=true
+**注意**: 接続先を切り替えるには環境変数 `ENVIRONMENT` を指定します：
 
-# テスト用データベースURL（Playwrightテスト時に使用）
-TEST_DATABASE_URL=postgresql://personal_tracker:personal_tracker@localhost:5432/personal_tracker_test
+```bash
+# TEST環境（デフォルト）
+npm run dev
+
+# STG環境
+ENVIRONMENT=STG npm run dev
+
+# PROD環境（PROD_CONFIRMED=trueも必要）
+ENVIRONMENT=PROD npm run dev
 ```
 
 ### 3. データベースのマイグレーション
@@ -54,69 +61,91 @@ http://localhost:3000 にアクセスしてアプリケーションを確認で�
 
 ## 環境変数の詳細
 
-### ENVIRONMENT
+### ENVIRONMENT（実行時に指定）
 
-実行環境を指定します。この設定により、誤って本番データベースにテストデータが混入することを防ぎます。
+実行環境をコマンド実行時に指定します。この設定により、誤って本番データベースにテストデータが混入することを防ぎます。
 
-| 値 | 説明 | 要求されるDB名 |
+| 値 | 説明 | 使用されるURL |
 |---|---|---|
-| `TEST` | テスト環境（デフォルト） | `personal_tracker_test` |
-| `STG` | ステージング環境 | `personal_tracker_stg` |
-| `PROD` | 本番環境 | `personal_tracker` |
+| 未指定 | テスト環境（デフォルト） | `DATABASE_URL_TEST` |
+| `TEST` | テスト環境 | `DATABASE_URL_TEST` |
+| `STG` | ステージング環境 | `DATABASE_URL_STG` |
+| `PROD` | 本番環境 | `DATABASE_URL_PROD` |
 
-### ALLOW_PROD_ACCESS
+### DATABASE_URL_XXX
+
+各環境のデータベース接続URLを指定します：
+
+- **DATABASE_URL_TEST**: テスト環境のデータベースURL
+- **DATABASE_URL_STG**: ステージング環境のデータベースURL
+- **DATABASE_URL_PROD**: 本番環境のデータベースURL
+
+### PROD_CONFIRMED
 
 PROD環境への接続を明示的に許可するフラグです。
 
 - **`true`**: PROD環境への接続を許可
-- **未設定**: PROD環境への接続を拒否（エラー）
+- **`false` または未設定**: PROD環境への接続を拒否（エラー）
 
 ### 安全装置の仕組み
 
 本プロジェクトでは、誤操作による本番データベース汚染を防ぐため、以下の安全装置を実装しています：
 
 1. **デフォルトはTEST環境**
-   - 環境変数未設定時は自動的にテスト用DBを要求
-   - 起動時に環境とDBの整合性をチェック
+   - `ENVIRONMENT`未指定時は自動的にテスト用DBに接続
+   - 起動時に環境に応じた適切なURLを選択
 
-2. **PROD環境への二重チェック**
-   - `ENVIRONMENT=PROD` の設定
-   - さらに `ALLOW_PROD_ACCESS=true` の明示的な許可が必要
+2. **PROD環境への安全装置**
+   - `ENVIRONMENT=PROD` で本番環境を指定
+   - さらに `.env` で `PROD_CONFIRMED=true` の設定が必要
    - 両方が揃わないと起動時にエラー
 
-3. **整合性チェック**
-   - ENVIRONMENTとDATABASE_URLのDB名が一致するか検証
-   - 不一致の場合は詳細なエラーメッセージを表示
+3. **環境ごとの分離**
+   - 各環境のURLを明示的に分けて管理
+   - コマンド実行時に環境を明示的に選択
 
 ### 使用例
 
-#### テスト実行時（推奨）
+#### テスト環境（デフォルト）
 
 ```bash
-# 環境変数なし or ENVIRONMENT=TEST
-npm run test:e2e
-# → personal_tracker_test に接続
-```
-
-#### 開発時（本番DBを使用）
-
-```bash
-# .env ファイル
-ENVIRONMENT=PROD
-ALLOW_PROD_ACCESS=true
-DATABASE_URL=postgresql://...personal_tracker
-
+# ENVIRONMENTを指定しない場合、自動的にTEST環境
 npm run dev
-# → ⚠️ 警告: PROD環境に接続しています
+# → 🧪 TEST環境（テストデータベース）に接続しています
+
+# または明示的に指定
+ENVIRONMENT=TEST npm run dev
 ```
 
 #### ステージング環境
 
 ```bash
-ENVIRONMENT=STG
-DATABASE_URL=postgresql://...personal_tracker_stg
+ENVIRONMENT=STG npm run dev
+# → 📦 STG環境（ステージングデータベース）に接続しています
 
-npm run dev
+# マイグレーション
+ENVIRONMENT=STG npm run db:push
+```
+
+#### 本番環境（要注意）
+
+```bash
+# .env ファイルでPROD_CONFIRMED=trueを設定した上で
+ENVIRONMENT=PROD npm run dev
+# → ⚠️ 警告: PROD環境（本番データベース）に接続しています
+```
+
+#### マイグレーションの環境切り替え
+
+```bash
+# TEST環境にマイグレーション（デフォルト）
+npm run db:push
+
+# STG環境にマイグレーション
+ENVIRONMENT=STG npm run db:push
+
+# PROD環境にマイグレーション（要注意）
+ENVIRONMENT=PROD npm run db:push
 ```
 
 ## スクリプト
