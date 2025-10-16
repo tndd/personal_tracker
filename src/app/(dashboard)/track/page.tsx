@@ -24,6 +24,7 @@ export default function TrackPage() {
   const loadButtonRef = useRef<HTMLDivElement>(null);
   const isLoadingRef = useRef(false);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
+  const initialScrollDoneRef = useRef(false);
 
   // タグ情報のキャッシュ
   const [tagsCache, setTagsCache] = useState<Map<string, Tag & { category: Category }>>(new Map());
@@ -187,7 +188,7 @@ export default function TrackPage() {
       isLoadingRef.current = false;
       setIsLoading(false);
     }
-  }, [hasMore, nextCursor, fetchTagsInfo]);
+  }, [hasMore, nextCursor, fetchTagsInfo, tagsCache]);
 
   // 初回ロード
   useEffect(() => {
@@ -211,14 +212,19 @@ export default function TrackPage() {
     return () => setSidebarContent(null);
   }, [selectedTagIds, searchQuery, setSidebarContent]);
 
-  // 初回レンダリング時にスクロールを最下部に移動
+  // 初回ロード完了時のみスクロールを最下部に移動
   useEffect(() => {
-    if (initialLoadDone && tracks.length > 0) {
-      const container = containerRef.current;
-      if (container) {
-        container.scrollTop = container.scrollHeight;
-      }
+    if (!initialLoadDone || initialScrollDoneRef.current || tracks.length === 0) {
+      return;
     }
+
+    const container = containerRef.current;
+    if (!container) {
+      return;
+    }
+
+    container.scrollTop = container.scrollHeight;
+    initialScrollDoneRef.current = true;
   }, [initialLoadDone, tracks.length]);
 
   // スクロール監視
