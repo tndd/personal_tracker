@@ -120,6 +120,9 @@ ENVIRONMENT=TEST npm run dev
 #### ステージング環境
 
 ```bash
+npm run stg
+# → 📦 STG環境（ステージングデータベース）に接続しています
+
 ENVIRONMENT=STG npm run dev
 # → 📦 STG環境（ステージングデータベース）に接続しています
 
@@ -153,6 +156,9 @@ ENVIRONMENT=PROD npm run db:push
 ```bash
 # 開発サーバーの起動
 npm run dev
+
+# ステージング用開発サーバーの起動
+npm run stg
 
 # ビルド
 npm run build
