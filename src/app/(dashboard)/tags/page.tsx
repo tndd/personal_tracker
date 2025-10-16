@@ -284,61 +284,61 @@ export default function TagsPage() {
     const activeCats = categories.filter((cat) => !cat.archived);
 
     setSidebarContent(
-      <nav className="space-y-1">
-        {/* ALL タブ */}
-        <button
-          onClick={() => setSelectedTab("all")}
-          className={cn(
-            "w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors",
-            selectedTab === "all"
-              ? "bg-white text-blue-600 shadow-sm"
-              : "text-gray-700 hover:bg-gray-100"
-          )}
-        >
-          ALL
-        </button>
-
-        {/* 区切り線 */}
-        {activeCats.length > 0 && (
-          <div className="border-t border-gray-200 my-2" />
-        )}
-
-        {/* 各カテゴリ */}
-        {activeCats.map((category) => (
+      <div className="flex flex-col h-full">
+        {/* ALL ボタン（特別扱い） */}
+        <div className="mb-4">
           <button
-            key={category.id}
-            onClick={() => setSelectedTab(category.id)}
+            onClick={() => setSelectedTab("all")}
             className={cn(
-              "w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2",
-              selectedTab === category.id
-                ? "bg-white text-blue-600 shadow-sm"
-                : "text-gray-700 hover:bg-gray-100"
+              "w-full px-6 py-2 rounded-full text-sm font-medium transition-colors text-center",
+              selectedTab === "all"
+                ? "bg-blue-100 text-blue-700"
+                : "bg-blue-50 text-blue-600 hover:bg-blue-100"
             )}
           >
-            <div
-              className="h-3 w-3 rounded flex-shrink-0"
-              style={{ backgroundColor: category.color }}
-            />
-            <span className="truncate">{category.name}</span>
+            ALL
           </button>
-        ))}
+        </div>
 
-        {/* 区切り線 */}
-        <div className="border-t border-gray-200 my-2" />
+        {/* タグ一覧（スクロール可能） */}
+        <div className="flex-1 overflow-y-auto">
+          <h3 className="text-sm font-medium text-gray-700 mb-2">タグ一覧</h3>
+          <nav className="space-y-1 ml-2">
+            {/* 各カテゴリ */}
+            {activeCats.map((category) => (
+              <button
+                key={category.id}
+                onClick={() => setSelectedTab(category.id)}
+                className={cn(
+                  "w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2",
+                  selectedTab === category.id
+                    ? "bg-white text-blue-600 shadow-sm"
+                    : "text-gray-700 hover:bg-gray-100"
+                )}
+              >
+                <div
+                  className="h-3 w-3 rounded flex-shrink-0"
+                  style={{ backgroundColor: category.color }}
+                />
+                <span className="truncate">{category.name}</span>
+              </button>
+            ))}
+          </nav>
+        </div>
 
-        {/* Archived タブ */}
-        <button
-          onClick={() => setSelectedTab("archived")}
-          className={cn(
-            "w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors",
-            selectedTab === "archived"
-              ? "bg-white text-blue-600 shadow-sm"
-              : "text-gray-700 hover:bg-gray-100"
-          )}
-        >
-          Archived
-        </button>
-      </nav>
+        {/* Archived（下部固定） */}
+        <div className="pb-2">
+          <h3
+            onClick={() => setSelectedTab("archived")}
+            className={cn(
+              "text-sm text-gray-700 cursor-pointer transition-colors",
+              selectedTab === "archived" && "text-blue-600"
+            )}
+          >
+            Archived
+          </h3>
+        </div>
+      </div>
     );
 
     // クリーンアップ: コンポーネントのアンマウント時にサイドバーコンテンツをクリア
