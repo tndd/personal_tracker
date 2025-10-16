@@ -18,6 +18,7 @@ export default function TrackPage() {
 
   const [tracks, setTracks] = useState<TrackWithTags[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -127,6 +128,7 @@ export default function TrackPage() {
 
     isLoadingRef.current = true;
     setIsLoading(true);
+    setLoadError(null);
 
     const container = containerRef.current;
     const oldScrollHeight = container?.scrollHeight || 0;
@@ -142,7 +144,7 @@ export default function TrackPage() {
       const response = await fetch(`/api/tracks?${params}`);
       if (!response.ok) {
         console.error("トラック取得エラー");
-        setHasMore(false);
+        setLoadError("過去のトラックの取得に失敗しました。再試行してください。");
         isLoadingRef.current = false;
         setIsLoading(false);
         return;
@@ -167,6 +169,7 @@ export default function TrackPage() {
           .filter((tag): tag is Tag & { category: Category } => tag !== undefined),
       }));
 
+      setLoadError(null);
       setTracks((prev) => [...prev, ...tracksWithTags]);
       setNextCursor(data.nextCursor);
       setHasMore(!!data.nextCursor);
@@ -184,7 +187,7 @@ export default function TrackPage() {
       });
     } catch (error) {
       console.error("トラック取得エラー:", error);
-      setHasMore(false);
+      setLoadError("過去のトラックの取得に失敗しました。再試行してください。");
       isLoadingRef.current = false;
       setIsLoading(false);
     }
@@ -301,20 +304,28 @@ export default function TrackPage() {
         <div className="space-y-2 sm:space-y-3">
           {/* 過去を読み込むボタン／ローディング表示 */}
           {hasMore && (
-            <div ref={loadButtonRef} className="flex justify-center py-4">
+            <div
+              ref={loadButtonRef}
+              className="flex flex-col items-center gap-2 py-4"
+            >
               {isLoading ? (
                 <div className="flex items-center gap-2 text-sm text-gray-500">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   過去のトラックを読み込み中...
                 </div>
               ) : (
-                <button
-                  onClick={loadMoreTracks}
-                  className="flex items-center gap-2 rounded-md px-4 py-2 text-sm text-gray-500 hover:bg-gray-100 transition-colors"
-                >
-                  <ArrowUp className="h-4 w-4" />
-                  過去のトラックを読み込む
-                </button>
+                <>
+                  {loadError && (
+                    <p className="text-sm text-red-500">{loadError}</p>
+                  )}
+                  <button
+                    onClick={loadMoreTracks}
+                    className="flex items-center gap-2 rounded-md px-4 py-2 text-sm text-gray-500 hover:bg-gray-100 transition-colors"
+                  >
+                    <ArrowUp className="h-4 w-4" />
+                    {loadError ? "もう一度読み込む" : "過去のトラックを読み込む"}
+                  </button>
+                </>
               )}
             </div>
           )}
