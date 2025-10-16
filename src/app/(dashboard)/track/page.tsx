@@ -6,144 +6,186 @@ import { TrackCard } from "@/components/track/track-card";
 import { TrackSidebarContent } from "@/components/track/track-sidebar-content";
 import { useSidebarContent } from "@/contexts/sidebar-content-context";
 import { ArrowUp, Loader2 } from "lucide-react";
+import type { Track, Tag, Category } from "@/lib/db/schema";
 
-// ダミーデータを生成する関数（決定的な生成でHydration errorを防ぐ）
-const generateMockTracks = (count: number, startIndex: number, baseTime?: number) => {
-  const now = baseTime || Date.now();
-  const memos = [
-    "朝散歩をした。気分が良い。",
-    "昼食後に少し頭痛がする",
-    "デパスを服用",
-    "夜ぐっすり眠れた",
-    "仕事が忙しくてストレスを感じる",
-    "ヨガをして心身ともにリフレッシュ",
-    "カフェでゆっくり読書",
-    "友人と楽しく食事",
-    "軽い運動をした",
-    "体調がすぐれない",
-    "新しいプロジェクトを開始",
-    "良いアイデアが浮かんだ",
-    "睡眠不足で疲れている",
-    "気分転換に映画を見た",
-    "健康診断を受けた",
-  ];
-
-  const tags = [
-    { id: "tag-1", name: "デパス", categoryName: "服薬", color: "#3B82F6" },
-    { id: "tag-4", name: "頭痛", categoryName: "症状", color: "#EF4444" },
-    { id: "tag-7", name: "散歩", categoryName: "運動", color: "#10B981" },
-    { id: "tag-8", name: "ヨガ", categoryName: "運動", color: "#10B981" },
-    { id: "tag-9", name: "読書", categoryName: "趣味", color: "#8B5CF6" },
-  ];
-
-  const tracks = [];
-  for (let i = 0; i < count; i++) {
-    const index = startIndex + i;
-    // 決定的な生成（同じindexなら常に同じ結果）
-    const hoursAgo = index * 2 + (index % 3) * 0.5;
-    const condition = ((index * 7) % 5) - 2; // -2 から 2
-    const memo = memos[index % memos.length];
-    const tagCount = (index * 3) % 3; // 0-2個のタグ
-    const selectedTags: typeof tags = [];
-    for (let j = 0; j < tagCount; j++) {
-      const tagIndex = (index + j) % tags.length;
-      const tag = tags[tagIndex];
-      if (!selectedTags.find((t) => t.id === tag.id)) {
-        selectedTags.push(tag);
-      }
-    }
-
-    tracks.push({
-      id: `track-${index}`,
-      memo,
-      condition,
-      tags: selectedTags,
-      createdAt: new Date(now - hoursAgo * 60 * 60 * 1000).toISOString(),
-    });
-  }
-  return tracks;
+// トラックとタグ情報を組み合わせた型
+type TrackWithTags = Track & {
+  tags: Array<Tag & { category: Category }>;
 };
 
 export default function TrackPage() {
   const { setSidebarContent } = useSidebarContent();
 
-  // 基準時刻を保存（Hydration errorを防ぐため）
-  const baseTimeRef = useRef(Date.now());
-
-  // 初期データをuseStateの初期化関数で生成（クライアントサイドのみ）
-  const [tracks, setTracks] = useState(() => generateMockTracks(10, 0, baseTimeRef.current));
+  const [tracks, setTracks] = useState<TrackWithTags[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
-  const [oldestIndex, setOldestIndex] = useState(10); // 次にロードするトラックのインデックス
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const loadButtonRef = useRef<HTMLDivElement>(null);
-  const isLoadingRef = useRef(false); // ローディング中フラグ（同期的にチェック可能）
+  const isLoadingRef = useRef(false);
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
+
+  // タグ情報のキャッシュ
+  const [tagsCache, setTagsCache] = useState<Map<string, Tag & { category: Category }>>(new Map());
 
   // フィルター状態
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const handleSubmit = (data: { memo: string; condition: number; tagIds: string[] }) => {
-    const newTrack = {
-      id: `new-${Date.now()}`,
-      memo: data.memo,
-      condition: data.condition,
-      tags: [], // TODO: タグ選択機能実装後に対応
-      createdAt: new Date().toISOString(),
-    };
+  // タグ情報を取得してキャッシュする
+  const fetchTagsInfo = useCallback(async (tagIds: string[]) => {
+    if (tagIds.length === 0) return [];
 
-    // 新しいトラックを配列の先頭に追加（tracks配列は新しい順で統一）
-    setTracks([newTrack, ...tracks]);
-  };
+    const uncachedIds = tagIds.filter((id) => !tagsCache.has(id));
 
-  const handleDelete = (id: string) => {
-    setTracks(tracks.filter((track) => track.id !== id));
-  };
+    if (uncachedIds.length > 0) {
+      try {
+        // カテゴリ一覧を取得
+        const categoriesRes = await fetch("/api/categories");
+        if (!categoriesRes.ok) {
+          console.error("カテゴリ取得エラー");
+          return [];
+        }
+        const categoriesData = await categoriesRes.json();
+        const categories: Category[] = categoriesData.items;
 
-  // 過去のトラックを読み込む
+        // 各カテゴリのタグを取得してキャッシュに追加
+        for (const category of categories) {
+          const tagsRes = await fetch(`/api/tags?category_id=${category.id}`);
+          if (tagsRes.ok) {
+            const tagsData = await tagsRes.json();
+            const tags: Tag[] = tagsData.items;
+            tags.forEach((tag) => {
+              tagsCache.set(tag.id, { ...tag, category });
+            });
+          }
+        }
+        setTagsCache(new Map(tagsCache));
+      } catch (error) {
+        console.error("タグ情報取得エラー:", error);
+      }
+    }
+
+    return tagIds.map((id) => tagsCache.get(id)).filter((tag): tag is Tag & { category: Category } => tag !== undefined);
+  }, [tagsCache]);
+
+  const handleSubmit = useCallback(async (data: { memo: string; condition: number; tagIds: string[] }) => {
+    try {
+      const response = await fetch("/api/tracks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          memo: data.memo,
+          condition: data.condition,
+          tagIds: data.tagIds,
+        }),
+      });
+
+      if (!response.ok) {
+        console.error("トラック作成エラー");
+        return;
+      }
+
+      const newTrack: Track = await response.json();
+
+      // タグ情報を取得
+      const tags = await fetchTagsInfo(newTrack.tagIds || []);
+
+      const trackWithTags: TrackWithTags = {
+        ...newTrack,
+        tags,
+      };
+
+      // 新しいトラックを配列の先頭に追加
+      setTracks((prev) => [trackWithTags, ...prev]);
+    } catch (error) {
+      console.error("トラック作成エラー:", error);
+    }
+  }, [fetchTagsInfo]);
+
+  const handleDelete = useCallback(async (id: string) => {
+    try {
+      const response = await fetch(`/api/tracks/${id}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        console.error("トラック削除エラー");
+        return;
+      }
+
+      setTracks((prev) => prev.filter((track) => track.id !== id));
+    } catch (error) {
+      console.error("トラック削除エラー:", error);
+    }
+  }, []);
+
+  // トラックを読み込む
   const loadMoreTracks = useCallback(async () => {
-    // refを使って同期的にチェック（Reactの状態更新を待たない）
     if (isLoadingRef.current || !hasMore) return;
 
     isLoadingRef.current = true;
     setIsLoading(true);
 
-    // 現在のスクロール位置と高さを保存
     const container = containerRef.current;
     const oldScrollHeight = container?.scrollHeight || 0;
     const oldScrollTop = container?.scrollTop || 0;
 
-    // ローディングをシミュレート（300ms）
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    try {
+      const params = new URLSearchParams();
+      params.set("limit", "20");
+      if (nextCursor) {
+        params.set("cursor", nextCursor);
+      }
 
-    const newTracks = generateMockTracks(15, oldestIndex, baseTimeRef.current);
+      const response = await fetch(`/api/tracks?${params}`);
+      if (!response.ok) {
+        console.error("トラック取得エラー");
+        setHasMore(false);
+        return;
+      }
 
-    // すでに100件以上ある場合は終了
-    if (oldestIndex >= 100) {
+      const data = await response.json();
+      const newTracks: Track[] = data.items;
+
+      // 各トラックのタグ情報を取得
+      const tracksWithTags: TrackWithTags[] = await Promise.all(
+        newTracks.map(async (track) => ({
+          ...track,
+          tags: await fetchTagsInfo(track.tagIds || []),
+        }))
+      );
+
+      setTracks((prev) => [...prev, ...tracksWithTags]);
+      setNextCursor(data.nextCursor);
+      setHasMore(!!data.nextCursor);
+
+      // スクロール位置を調整
+      requestAnimationFrame(() => {
+        if (container) {
+          const newScrollHeight = container.scrollHeight;
+          const heightDifference = newScrollHeight - oldScrollHeight;
+          container.scrollTop = oldScrollTop + heightDifference;
+        }
+
+        isLoadingRef.current = false;
+        setIsLoading(false);
+      });
+    } catch (error) {
+      console.error("トラック取得エラー:", error);
       setHasMore(false);
       isLoadingRef.current = false;
       setIsLoading(false);
-      return;
     }
+  }, [hasMore, nextCursor, fetchTagsInfo]);
 
-    // 古いトラックを配列の末尾に追加（tracks配列は新しい順で統一）
-    setTracks((prevTracks) => [...prevTracks, ...newTracks]);
-    setOldestIndex(oldestIndex + 15);
-
-    // スクロール位置を調整（新しいコンテンツが追加されても同じ位置を見ているように）
-    // requestAnimationFrameを使用して、DOMの更新が確実に完了してから調整
-    requestAnimationFrame(() => {
-      if (container) {
-        const newScrollHeight = container.scrollHeight;
-        const heightDifference = newScrollHeight - oldScrollHeight;
-        container.scrollTop = oldScrollTop + heightDifference;
-      }
-
-      // スクロール位置の調整が完了してからローディングを解除
-      isLoadingRef.current = false;
-      setIsLoading(false);
-    });
-  }, [hasMore, oldestIndex]);
+  // 初回ロード
+  useEffect(() => {
+    if (!initialLoadDone) {
+      setInitialLoadDone(true);
+      loadMoreTracks();
+    }
+  }, [initialLoadDone, loadMoreTracks]);
 
   // サイドバーコンテンツを設定
   useEffect(() => {
@@ -156,36 +198,34 @@ export default function TrackPage() {
       />
     );
 
-    // クリーンアップ時にサイドバーコンテンツをクリア
     return () => setSidebarContent(null);
   }, [selectedTagIds, searchQuery, setSidebarContent]);
 
   // 初回レンダリング時にスクロールを最下部に移動
   useEffect(() => {
-    const container = containerRef.current;
-    if (container) {
-      container.scrollTop = container.scrollHeight;
+    if (initialLoadDone && tracks.length > 0) {
+      const container = containerRef.current;
+      if (container) {
+        container.scrollTop = container.scrollHeight;
+      }
     }
-  }, []);
+  }, [initialLoadDone, tracks.length]);
 
-  // スクロール監視（スクロール可能なコンテナ内で監視）
+  // スクロール監視
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
     const handleScroll = () => {
-      // refを使って同期的にチェック
       if (!loadButtonRef.current || isLoadingRef.current || !hasMore) return;
 
       const buttonRect = loadButtonRef.current.getBoundingClientRect();
       const containerRect = container.getBoundingClientRect();
 
-      // ボタンがコンテナの表示領域内にあるかチェック
       const isButtonVisible =
         buttonRect.top < containerRect.bottom &&
         buttonRect.bottom > containerRect.top;
 
-      // ボタンが表示されたら自動的にロード
       if (isButtonVisible) {
         loadMoreTracks();
       }
@@ -207,7 +247,7 @@ export default function TrackPage() {
       const query = searchQuery.toLowerCase();
       result = result.filter((track) => {
         // メモで検索
-        if (track.memo.toLowerCase().includes(query)) {
+        if (track.memo?.toLowerCase().includes(query)) {
           return true;
         }
         // タグ名で検索
@@ -263,8 +303,14 @@ export default function TrackPage() {
             </div>
           )}
 
-          {/* すべて読み込み済みの表示 */}
-          {!hasMore && (
+          {/* すべて読み込み済みまたは初回ロード中 */}
+          {!hasMore && tracks.length === 0 && !isLoading && (
+            <div className="flex justify-center py-8">
+              <p className="text-sm text-gray-400">トラックがありません。最初の記録を作成しましょう！</p>
+            </div>
+          )}
+
+          {!hasMore && tracks.length > 0 && (
             <div className="flex justify-center py-4">
               <p className="text-sm text-gray-400">すべてのトラックを読み込みました</p>
             </div>
@@ -274,7 +320,22 @@ export default function TrackPage() {
           {displayTracks.map((track) => (
             <TrackCard
               key={track.id}
-              {...track}
+              id={track.id}
+              memo={track.memo || ""}
+              condition={track.condition ?? 0}
+              tags={track.tags.map((tag) => ({
+                id: tag.id,
+                name: tag.name,
+                categoryName: tag.category.name,
+                color: tag.category.color,
+              }))}
+              createdAt={
+                typeof track.createdAt === 'string'
+                  ? track.createdAt
+                  : track.createdAt
+                    ? track.createdAt.toISOString()
+                    : new Date().toISOString()
+              }
               onDelete={() => handleDelete(track.id)}
               onEdit={() => console.log("Edit", track.id)}
             />
