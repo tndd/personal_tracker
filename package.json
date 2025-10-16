@@ -7,7 +7,6 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "stg": "tsx scripts/start-stg.ts",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "seed:stg": "tsx scripts/seed-stg.ts",
