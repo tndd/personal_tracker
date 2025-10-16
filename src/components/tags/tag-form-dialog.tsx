@@ -85,24 +85,6 @@ export function TagFormDialog({
               <p className="text-xs text-gray-500">{tagName.length}/50</p>
             </div>
 
-            {/* プレビュー */}
-            {tagName.trim() && (
-              <div className="space-y-2">
-                <label className="text-sm font-medium">プレビュー</label>
-                <div className="flex items-center gap-2">
-                  <span
-                    className="inline-flex items-center rounded-md px-3 py-1.5 text-sm font-medium"
-                    style={{
-                      backgroundColor: `${categoryColor}20`,
-                      color: categoryColor,
-                    }}
-                  >
-                    {tagName.trim()}
-                  </span>
-                </div>
-              </div>
-            )}
-
             {/* ボタン */}
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={onClose}>
