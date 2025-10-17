@@ -122,7 +122,12 @@ export async function GET(request: Request) {
     .orderBy(tracks.createdAt);
 
   // 指定粒度で集計
-  const slotMap = new Map<number, { min: number; max: number; count: number }>();
+  const slotMap = new Map<number, {
+    min: number;
+    max: number;
+    count: number;
+    counts: Record<number, number>; // 各コンディション値の出現回数
+  }>();
 
   for (const item of data) {
     if (!item.createdAt || item.condition === null) continue;
@@ -135,11 +140,13 @@ export async function GET(request: Request) {
       existing.min = Math.min(existing.min, item.condition);
       existing.max = Math.max(existing.max, item.condition);
       existing.count += 1;
+      existing.counts[item.condition] = (existing.counts[item.condition] || 0) + 1;
     } else {
       slotMap.set(slotIndex, {
         min: item.condition,
         max: item.condition,
         count: 1,
+        counts: { [item.condition]: 1 },
       });
     }
   }
@@ -153,13 +160,28 @@ export async function GET(request: Request) {
     const slotEnd = new Date(slotStart.getTime() + granularityMs);
 
     const data = slotMap.get(i);
+
+    // 各コンディション値の比率を計算
+    const counts = data?.counts ?? {};
+    const totalCount = data?.count ?? 0;
+    const ratios: Record<number, number> = {};
+
+    if (totalCount > 0) {
+      for (let condition = -2; condition <= 2; condition++) {
+        const count = counts[condition] || 0;
+        ratios[condition] = count / totalCount;
+      }
+    }
+
     result.push({
       slotIndex: i,
       startTime: slotStart.toISOString(),
       endTime: slotEnd.toISOString(),
       min: data?.min ?? null,
       max: data?.max ?? null,
-      count: data?.count ?? 0,
+      count: totalCount,
+      counts: totalCount > 0 ? counts : {},
+      ratios: totalCount > 0 ? ratios : {},
     });
   }
 

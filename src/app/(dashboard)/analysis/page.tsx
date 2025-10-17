@@ -12,6 +12,8 @@ type ConditionData = {
   min: number | null;
   max: number | null;
   count: number;
+  counts: Record<number, number>; // 各コンディション値の出現回数
+  ratios: Record<number, number>; // 各コンディション値の比率
 };
 
 // 粒度の型
@@ -188,55 +190,104 @@ export default function AnalysisPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {/* グラフ（レンジバー） */}
+              {/* グラフ（比率ベースの積み上げバー） */}
               <div className="overflow-x-auto -mx-2 sm:mx-0">
                 <div className="relative min-w-max p-2 sm:p-4">
-                  {/* プラス方向のエリア（上部・固定40px） */}
-                  <div className="flex gap-1 h-10">
-                    {conditionData.map((item) => {
-                      const hasData = item.min !== null && item.max !== null;
-                      const max = item.max ?? 0;
-                      return (
-                        <div key={`${item.slotIndex}-top`} className="w-8 flex flex-col-reverse">
-                          {/* +1の段（下段） */}
-                          <div className={`h-5 ${hasData && max >= 1 ? 'bg-green-400' : ''}`} />
-                          {/* +2の段（上段） */}
-                          <div className={`h-5 ${hasData && max >= 2 ? 'bg-green-500' : ''}`} />
-                        </div>
-                      );
-                    })}
-                  </div>
+                  {/* 最大高さ（px） */}
+                  {(() => {
+                    const MAX_HEIGHT = 120;
 
-                  {/* 0の段（基準線） */}
-                  <div className="flex gap-1 h-5">
-                    {conditionData.map((item) => {
-                      const hasData = item.min !== null && item.max !== null;
-                      const min = item.min ?? 0;
-                      const max = item.max ?? 0;
-                      return (
-                        <div
-                          key={`${item.slotIndex}-zero`}
-                          className={`w-8 ${hasData && min <= 0 && max >= 0 ? 'bg-gray-400' : ''}`}
-                        />
-                      );
-                    })}
-                  </div>
+                    return (
+                      <>
+                        {/* プラス方向のエリア（上部） */}
+                        <div className="flex gap-1" style={{ height: `${MAX_HEIGHT}px` }}>
+                          {conditionData.map((item) => {
+                            const hasData = item.count > 0;
+                            const ratios = item.ratios || {};
+                            // +2と+1の比率
+                            const ratio2 = ratios[2] || 0;
+                            const ratio1 = ratios[1] || 0;
+                            const totalPositive = ratio2 + ratio1;
 
-                  {/* マイナス方向のエリア（下部・固定40px） */}
-                  <div className="flex gap-1 h-10">
-                    {conditionData.map((item) => {
-                      const hasData = item.min !== null && item.max !== null;
-                      const min = item.min ?? 0;
-                      return (
-                        <div key={`${item.slotIndex}-bottom`} className="w-8 flex flex-col">
-                          {/* -1の段（上段） */}
-                          <div className={`h-5 ${hasData && min <= -1 ? 'bg-orange-400' : ''}`} />
-                          {/* -2の段（下段） */}
-                          <div className={`h-5 ${hasData && min <= -2 ? 'bg-red-500' : ''}`} />
+                            return (
+                              <div key={`${item.slotIndex}-top`} className="w-8 flex flex-col-reverse">
+                                {hasData && totalPositive > 0 ? (
+                                  <>
+                                    {/* +1の領域（下側） */}
+                                    {ratio1 > 0 && (
+                                      <div
+                                        className="bg-green-400"
+                                        style={{ height: `${(ratio1 * MAX_HEIGHT)}px` }}
+                                      />
+                                    )}
+                                    {/* +2の領域（上側） */}
+                                    {ratio2 > 0 && (
+                                      <div
+                                        className="bg-green-500"
+                                        style={{ height: `${(ratio2 * MAX_HEIGHT)}px` }}
+                                      />
+                                    )}
+                                  </>
+                                ) : null}
+                              </div>
+                            );
+                          })}
                         </div>
-                      );
-                    })}
-                  </div>
+
+                        {/* 0の段（基準線） */}
+                        <div className="flex gap-1" style={{ height: '20px' }}>
+                          {conditionData.map((item) => {
+                            const hasData = item.count > 0;
+                            const ratios = item.ratios || {};
+                            const ratio0 = ratios[0] || 0;
+
+                            return (
+                              <div key={`${item.slotIndex}-zero`} className="w-8">
+                                {hasData && ratio0 > 0 && (
+                                  <div className="bg-gray-400 h-full" />
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {/* マイナス方向のエリア（下部） */}
+                        <div className="flex gap-1" style={{ height: `${MAX_HEIGHT}px` }}>
+                          {conditionData.map((item) => {
+                            const hasData = item.count > 0;
+                            const ratios = item.ratios || {};
+                            // -1と-2の比率
+                            const ratioMinus1 = ratios[-1] || 0;
+                            const ratioMinus2 = ratios[-2] || 0;
+                            const totalNegative = ratioMinus1 + ratioMinus2;
+
+                            return (
+                              <div key={`${item.slotIndex}-bottom`} className="w-8 flex flex-col">
+                                {hasData && totalNegative > 0 ? (
+                                  <>
+                                    {/* -1の領域（上側） */}
+                                    {ratioMinus1 > 0 && (
+                                      <div
+                                        className="bg-orange-400"
+                                        style={{ height: `${(ratioMinus1 * MAX_HEIGHT)}px` }}
+                                      />
+                                    )}
+                                    {/* -2の領域（下側） */}
+                                    {ratioMinus2 > 0 && (
+                                      <div
+                                        className="bg-red-500"
+                                        style={{ height: `${(ratioMinus2 * MAX_HEIGHT)}px` }}
+                                      />
+                                    )}
+                                  </>
+                                ) : null}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>
+                    );
+                  })()}
 
                   {/* ラベル */}
                   <div className="flex gap-1 mt-2">
