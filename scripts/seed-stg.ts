@@ -56,15 +56,27 @@ const CATEGORY_MEDICATION = '22222222-2222-4222-8222-222222222222';
 const CATEGORY_ACTIVITY = '33333333-3333-4333-8333-333333333333';
 
 // タグID（固定 - RFC 4122準拠のUUID v4形式）
+// 症状
 const TAG_HEADACHE = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const TAG_DIZZY = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab';
 const TAG_NAUSEA = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaac';
+const TAG_FATIGUE = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaad';
+const TAG_INSOMNIA = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaae';
+const TAG_STOMACHACHE = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaf';
+
+// 服薬
 const TAG_LOXONIN = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const TAG_DEPAS = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbc';
-const TAG_STOMACH = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbd';
+const TAG_STOMACH_MED = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbd';
+const TAG_SUPPLEMENT = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbe';
+
+// 活動
 const TAG_WALK = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 const TAG_EXERCISE = 'cccccccc-cccc-4ccc-8ccc-cccccccccccd';
-const TAG_SLEEP = 'cccccccc-cccc-4ccc-8ccc-ccccccccccce';
+const TAG_SLEEP_GOOD = 'cccccccc-cccc-4ccc-8ccc-ccccccccccce';
+const TAG_STRETCH = 'cccccccc-cccc-4ccc-8ccc-cccccccccccf';
+const TAG_HYDRATION = 'cccccccc-cccc-4ccc-8ccc-cccccccccc10';
+const TAG_MEAL = 'cccccccc-cccc-4ccc-8ccc-cccccccccc11';
 
 async function main() {
   try {
@@ -85,17 +97,27 @@ async function main() {
 
     console.log('🏷️  タグを作成中...');
     await db.insert(tags).values([
+      // 症状タグ
       { id: TAG_HEADACHE, categoryId: CATEGORY_SYMPTOM, name: '頭痛', sortOrder: 0 },
       { id: TAG_DIZZY, categoryId: CATEGORY_SYMPTOM, name: 'めまい', sortOrder: 1 },
       { id: TAG_NAUSEA, categoryId: CATEGORY_SYMPTOM, name: '吐き気', sortOrder: 2 },
+      { id: TAG_FATIGUE, categoryId: CATEGORY_SYMPTOM, name: '倦怠感', sortOrder: 3 },
+      { id: TAG_INSOMNIA, categoryId: CATEGORY_SYMPTOM, name: '不眠', sortOrder: 4 },
+      { id: TAG_STOMACHACHE, categoryId: CATEGORY_SYMPTOM, name: '腹痛', sortOrder: 5 },
+      // 服薬タグ
       { id: TAG_LOXONIN, categoryId: CATEGORY_MEDICATION, name: 'ロキソニン', sortOrder: 0 },
       { id: TAG_DEPAS, categoryId: CATEGORY_MEDICATION, name: 'デパス', sortOrder: 1 },
-      { id: TAG_STOMACH, categoryId: CATEGORY_MEDICATION, name: '胃薬', sortOrder: 2 },
+      { id: TAG_STOMACH_MED, categoryId: CATEGORY_MEDICATION, name: '胃薬', sortOrder: 2 },
+      { id: TAG_SUPPLEMENT, categoryId: CATEGORY_MEDICATION, name: 'サプリ', sortOrder: 3 },
+      // 活動タグ
       { id: TAG_WALK, categoryId: CATEGORY_ACTIVITY, name: '散歩', sortOrder: 0 },
       { id: TAG_EXERCISE, categoryId: CATEGORY_ACTIVITY, name: '運動', sortOrder: 1 },
-      { id: TAG_SLEEP, categoryId: CATEGORY_ACTIVITY, name: '睡眠', sortOrder: 2 },
+      { id: TAG_SLEEP_GOOD, categoryId: CATEGORY_ACTIVITY, name: '良い睡眠', sortOrder: 2 },
+      { id: TAG_STRETCH, categoryId: CATEGORY_ACTIVITY, name: 'ストレッチ', sortOrder: 3 },
+      { id: TAG_HYDRATION, categoryId: CATEGORY_ACTIVITY, name: '水分補給', sortOrder: 4 },
+      { id: TAG_MEAL, categoryId: CATEGORY_ACTIVITY, name: '食事', sortOrder: 5 },
     ]);
-    console.log('✅ タグを作成しました（9件）');
+    console.log('✅ タグを作成しました（16件）');
 
     console.log('📊 トラックデータを作成中...');
     const trackData = generateTrackData();
@@ -221,8 +243,8 @@ function generateTrackData() {
     const pattern = selectPattern();
     const conditions = pattern.conditions;
 
-    // この日のtrack数（3-6件）
-    const trackCount = 3 + Math.floor(Math.random() * 4);
+    // この日のtrack数（4-8件）
+    const trackCount = 4 + Math.floor(Math.random() * 5);
 
     for (let i = 0; i < trackCount; i++) {
       // この時間帯のcondition値をパターンから選択
@@ -232,24 +254,46 @@ function generateTrackData() {
       const memoList = memos[condition as keyof typeof memos];
       const memo = memoList[Math.floor(Math.random() * memoList.length)];
 
-      // タグを選択
+      // タグを選択（よりリアルなパターン）
       let tagIds: string[] = [];
       if (condition >= 1) {
-        // 良い日は活動タグ
-        const activityTags = [TAG_WALK, TAG_EXERCISE, TAG_SLEEP];
-        if (Math.random() > 0.3) {
+        // 良い日は活動タグ（複数追加されることも）
+        const activityTags = [TAG_WALK, TAG_EXERCISE, TAG_SLEEP_GOOD, TAG_STRETCH, TAG_MEAL];
+        if (Math.random() > 0.2) {
           tagIds.push(activityTags[Math.floor(Math.random() * activityTags.length)]);
+        }
+        if (Math.random() > 0.6) {
+          // 水分補給は高確率
+          tagIds.push(TAG_HYDRATION);
+        }
+        if (Math.random() > 0.7 && !tagIds.includes(TAG_MEAL)) {
+          tagIds.push(TAG_MEAL);
         }
       } else if (condition <= -1) {
         // 悪い日は症状タグ + 服薬タグ
-        const symptomTags = [TAG_HEADACHE, TAG_DIZZY, TAG_NAUSEA];
-        const medicationTags = [TAG_LOXONIN, TAG_DEPAS, TAG_STOMACH];
+        const symptomTags = [TAG_HEADACHE, TAG_DIZZY, TAG_NAUSEA, TAG_FATIGUE, TAG_INSOMNIA, TAG_STOMACHACHE];
+        const medicationTags = [TAG_LOXONIN, TAG_DEPAS, TAG_STOMACH_MED];
 
-        if (Math.random() > 0.2) {
+        // 症状は必ず1つ以上
+        if (Math.random() > 0.1) {
           tagIds.push(symptomTags[Math.floor(Math.random() * symptomTags.length)]);
         }
-        if (Math.random() > 0.4) {
+        // 重症の場合は症状が複数
+        if (condition === -2 && Math.random() > 0.5) {
+          const secondSymptom = symptomTags[Math.floor(Math.random() * symptomTags.length)];
+          if (!tagIds.includes(secondSymptom)) {
+            tagIds.push(secondSymptom);
+          }
+        }
+        // 服薬
+        if (Math.random() > 0.3) {
           tagIds.push(medicationTags[Math.floor(Math.random() * medicationTags.length)]);
+        }
+      } else {
+        // 普通の日（condition=0）も時々タグ付き
+        if (Math.random() > 0.5) {
+          const neutralTags = [TAG_MEAL, TAG_HYDRATION, TAG_STRETCH, TAG_SUPPLEMENT];
+          tagIds.push(neutralTags[Math.floor(Math.random() * neutralTags.length)]);
         }
       }
 
@@ -274,11 +318,11 @@ function generateTrackData() {
   return data;
 }
 
-// 日記データ生成関数
+// 日記データ生成関数（毎日生成 + 睡眠時刻付き）
 function generateDailyData() {
   const data = [];
 
-  // 今日から90日前までの日記データを生成（10日に1回程度）
+  // 今日から90日前までの日記データを毎日生成
   const today = new Date();
   const startDate = new Date(today);
   startDate.setDate(today.getDate() - 89);
@@ -294,21 +338,70 @@ function generateDailyData() {
     'よく眠れたおかげで、朝からスッキリしていた。',
     '気圧の変化か、めまいがした。無理せず過ごした。',
     '久しぶりに運動できた。体を動かすと気持ちいい。',
+    '今日もいつも通り過ごせた。',
+    '疲れが溜まっている感じがする。早めに寝よう。',
+    '天気が良くて気分が良かった。',
+    '少し寝不足だったが、なんとか乗り切れた。',
+    '仕事が忙しかったが、充実感がある。',
   ];
 
-  for (let dayOffset = 0; dayOffset < 90; dayOffset += 10) {
+  for (let dayOffset = 0; dayOffset < 90; dayOffset++) {
     const currentDate = new Date(startDate);
     currentDate.setDate(startDate.getDate() + dayOffset);
     const dateStr = currentDate.toISOString().split('T')[0];
 
-    // ランダムにconditionとmemoを選択
-    const condition = Math.floor(Math.random() * 5) - 2; // -2 to +2
-    const memo = dailyMemos[Math.floor(Math.random() * dailyMemos.length)];
+    // condition値を重み付きでランダム選択（0が多め）
+    const conditionWeights = [-2, -2, -1, -1, -1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 2, 2];
+    const condition = conditionWeights[Math.floor(Math.random() * conditionWeights.length)];
+
+    // メモ（70%の確率で追加）
+    const memo = Math.random() > 0.3
+      ? dailyMemos[Math.floor(Math.random() * dailyMemos.length)]
+      : null;
+
+    // 睡眠時刻（90%の確率で記録）
+    let sleepStart = null;
+    let sleepEnd = null;
+    let sleepQuality = null;
+
+    if (Math.random() > 0.1) {
+      // 就寝時刻: 22:00-2:00 (前日22時〜当日2時)
+      const sleepHour = 22 + Math.floor(Math.random() * 5); // 22-26時
+      const sleepMinute = Math.floor(Math.random() * 60);
+      const actualSleepHour = sleepHour >= 24 ? sleepHour - 24 : sleepHour;
+      const sleepDay = sleepHour >= 24 ? currentDate : new Date(currentDate.getTime() - 24 * 60 * 60 * 1000);
+
+      sleepStart = new Date(
+        Date.UTC(
+          sleepDay.getUTCFullYear(),
+          sleepDay.getUTCMonth(),
+          sleepDay.getUTCDate(),
+          actualSleepHour - 9, // JSTからUTCに変換 (JST = UTC+9)
+          sleepMinute
+        )
+      );
+
+      // 起床時刻: 就寝から6-9時間後
+      const sleepDuration = 6 + Math.random() * 3;
+      sleepEnd = new Date(sleepStart.getTime() + sleepDuration * 60 * 60 * 1000);
+
+      // 睡眠の質: conditionと相関させる
+      if (condition >= 1) {
+        sleepQuality = Math.random() > 0.3 ? (Math.random() > 0.5 ? 2 : 1) : 0;
+      } else if (condition <= -1) {
+        sleepQuality = Math.random() > 0.3 ? (Math.random() > 0.5 ? -2 : -1) : 0;
+      } else {
+        sleepQuality = Math.floor(Math.random() * 5) - 2; // -2 to +2
+      }
+    }
 
     data.push({
       date: dateStr,
       memo,
       condition,
+      sleepStart,
+      sleepEnd,
+      sleepQuality,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
