@@ -4,16 +4,18 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
-// 3時間区間のデータ型
-type HourlyCondition = {
-  date: string;
-  slot: number;
-  startHour: number;
-  endHour: number;
-  min: number;
-  max: number;
+// 集計データの型
+type ConditionData = {
+  slotIndex: number;
+  startTime: string;
+  endTime: string;
+  min: number | null;
+  max: number | null;
   count: number;
 };
+
+// 粒度の型
+type Granularity = "3h" | "6h" | "12h" | "1d" | "3d" | "1w";
 
 // モックデータ: タグ相関
 const mockTagCorrelation = [
@@ -31,24 +33,62 @@ function formatDate(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
+// 粒度をミリ秒に変換
+function granularityToMs(gran: Granularity): number {
+  const match = gran.match(/^(\d+)([hdw])$/);
+  if (!match) return 0;
+
+  const value = parseInt(match[1], 10);
+  const unit = match[2];
+
+  switch (unit) {
+    case "h":
+      return value * 60 * 60 * 1000;
+    case "d":
+      return value * 24 * 60 * 60 * 1000;
+    case "w":
+      return value * 7 * 24 * 60 * 60 * 1000;
+    default:
+      return 0;
+  }
+}
+
+// デフォルト期間を計算（16区間分）
+function calculateDefaultPeriod(granularity: Granularity): { from: string; to: string } {
+  const today = new Date();
+  const to = formatDate(today);
+  const granMs = granularityToMs(granularity);
+  const from = formatDate(new Date(today.getTime() - granMs * 16));
+  return { from, to };
+}
+
 export default function AnalysisPage() {
-  const [conditionData, setConditionData] = useState<HourlyCondition[]>([]);
+  const [granularity, setGranularity] = useState<Granularity>("3h");
+  const [conditionData, setConditionData] = useState<ConditionData[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // デフォルト期間（過去7日間）
-  const today = new Date();
-  const defaultTo = formatDate(today);
-  const defaultFrom = formatDate(new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000));
+  // デフォルト期間（粒度の16区間分）
+  const defaultPeriod = calculateDefaultPeriod(granularity);
+  const [fromDate, setFromDate] = useState(defaultPeriod.from);
+  const [toDate, setToDate] = useState(defaultPeriod.to);
 
-  const [fromDate, setFromDate] = useState(defaultFrom);
-  const [toDate, setToDate] = useState(defaultTo);
+  // 粒度が変更されたら期間をリセット
+  useEffect(() => {
+    const period = calculateDefaultPeriod(granularity);
+    setFromDate(period.from);
+    setToDate(period.to);
+  }, [granularity]);
 
   // データ取得
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const params = new URLSearchParams({ from: fromDate, to: toDate });
+        const params = new URLSearchParams({
+          granularity,
+          from: fromDate,
+          to: toDate
+        });
         const response = await fetch(`/api/analysis/condition-hourly?${params}`);
         if (response.ok) {
           const data = await response.json();
@@ -61,13 +101,24 @@ export default function AnalysisPage() {
       }
     };
     fetchData();
-  }, [fromDate, toDate]);
+  }, [granularity, fromDate, toDate]);
 
-  // 日付とスロットのラベルを生成
-  const getSlotLabel = (slot: number) => {
-    const start = slot * 3;
-    const end = (slot + 1) * 3;
-    return `${start}-${end}h`;
+  // スロットのラベルを生成
+  const getSlotLabel = (item: ConditionData) => {
+    const start = new Date(item.startTime);
+
+    // 時間表示（時間単位の粒度）
+    if (granularity.endsWith("h")) {
+      return `${start.getHours()}h`;
+    }
+
+    // 日付表示（日単位の粒度）
+    if (granularity === "1d") {
+      return `${start.getMonth() + 1}/${start.getDate()}`;
+    }
+
+    // 期間表示（3日、1週間単位の粒度）
+    return `${start.getMonth() + 1}/${start.getDate()}`;
   };
 
   return (
@@ -75,12 +126,33 @@ export default function AnalysisPage() {
       {/* ヘッダー */}
       <div>
         <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">Analysis</h1>
-        <p className="mt-1 text-sm text-gray-500">健康データの分析（3時間単位）</p>
+        <p className="mt-1 text-sm text-gray-500">健康データの分析</p>
       </div>
 
-      {/* 期間選択 */}
+      {/* 粒度と期間の選択 */}
       <Card>
-        <CardContent className="p-3 sm:p-4">
+        <CardContent className="p-3 sm:p-4 space-y-3">
+          {/* 粒度選択 */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+            <label className="text-sm font-medium text-gray-700">粒度:</label>
+            <div className="flex flex-wrap gap-2">
+              {(["3h", "6h", "12h", "1d", "3d", "1w"] as Granularity[]).map((gran) => (
+                <button
+                  key={gran}
+                  onClick={() => setGranularity(gran)}
+                  className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                    granularity === gran
+                      ? "bg-blue-500 text-white"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+                >
+                  {gran}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 期間選択 */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
             <label className="text-sm font-medium text-gray-700">期間:</label>
             <div className="flex items-center gap-2 sm:gap-4">
@@ -102,10 +174,10 @@ export default function AnalysisPage() {
         </CardContent>
       </Card>
 
-      {/* コンディション推移（3時間区間） */}
+      {/* コンディション推移 */}
       <Card>
         <CardHeader>
-          <CardTitle>コンディション推移（3時間区間）</CardTitle>
+          <CardTitle>コンディション推移（{granularity}）</CardTitle>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -121,52 +193,61 @@ export default function AnalysisPage() {
                 <div className="relative min-w-max p-2 sm:p-4">
                   {/* プラス方向のエリア（上部・固定40px） */}
                   <div className="flex gap-1 h-10">
-                    {conditionData.map((item) => (
-                      <div key={`${item.date}-${item.slot}-top`} className="w-8 flex flex-col-reverse">
-                        {/* +1の段（下段） */}
-                        <div className={`h-5 ${item.max >= 1 ? 'bg-green-400' : ''}`} />
-                        {/* +2の段（上段） */}
-                        <div className={`h-5 ${item.max >= 2 ? 'bg-green-500' : ''}`} />
-                      </div>
-                    ))}
+                    {conditionData.map((item) => {
+                      const hasData = item.min !== null && item.max !== null;
+                      const max = item.max ?? 0;
+                      return (
+                        <div key={`${item.slotIndex}-top`} className="w-8 flex flex-col-reverse">
+                          {/* +1の段（下段） */}
+                          <div className={`h-5 ${hasData && max >= 1 ? 'bg-green-400' : ''}`} />
+                          {/* +2の段（上段） */}
+                          <div className={`h-5 ${hasData && max >= 2 ? 'bg-green-500' : ''}`} />
+                        </div>
+                      );
+                    })}
                   </div>
 
                   {/* 0の段（基準線） */}
                   <div className="flex gap-1 h-5">
-                    {conditionData.map((item) => (
-                      <div
-                        key={`${item.date}-${item.slot}-zero`}
-                        className={`w-8 ${item.min <= 0 && item.max >= 0 ? 'bg-gray-400' : ''}`}
-                      />
-                    ))}
+                    {conditionData.map((item) => {
+                      const hasData = item.min !== null && item.max !== null;
+                      const min = item.min ?? 0;
+                      const max = item.max ?? 0;
+                      return (
+                        <div
+                          key={`${item.slotIndex}-zero`}
+                          className={`w-8 ${hasData && min <= 0 && max >= 0 ? 'bg-gray-400' : ''}`}
+                        />
+                      );
+                    })}
                   </div>
 
                   {/* マイナス方向のエリア（下部・固定40px） */}
                   <div className="flex gap-1 h-10">
-                    {conditionData.map((item) => (
-                      <div key={`${item.date}-${item.slot}-bottom`} className="w-8 flex flex-col">
-                        {/* -1の段（上段） */}
-                        <div className={`h-5 ${item.min <= -1 ? 'bg-orange-400' : ''}`} />
-                        {/* -2の段（下段） */}
-                        <div className={`h-5 ${item.min <= -2 ? 'bg-red-500' : ''}`} />
-                      </div>
-                    ))}
+                    {conditionData.map((item) => {
+                      const hasData = item.min !== null && item.max !== null;
+                      const min = item.min ?? 0;
+                      return (
+                        <div key={`${item.slotIndex}-bottom`} className="w-8 flex flex-col">
+                          {/* -1の段（上段） */}
+                          <div className={`h-5 ${hasData && min <= -1 ? 'bg-orange-400' : ''}`} />
+                          {/* -2の段（下段） */}
+                          <div className={`h-5 ${hasData && min <= -2 ? 'bg-red-500' : ''}`} />
+                        </div>
+                      );
+                    })}
                   </div>
 
-                  {/* 時間帯ラベル */}
+                  {/* ラベル */}
                   <div className="flex gap-1 mt-2">
-                    {conditionData.map((item) => (
+                    {conditionData.map((item, index) => (
                       <div
-                        key={`${item.date}-${item.slot}-label`}
+                        key={`${item.slotIndex}-label`}
                         className="w-8 flex flex-col items-center gap-1"
                       >
-                        <span className="text-xs text-gray-600">
-                          {getSlotLabel(item.slot)}
-                        </span>
-                        {/* 日付ラベル（日付が変わる最初のスロットのみ表示） */}
-                        {item.slot === 0 && (
-                          <span className="text-xs font-medium text-gray-700">
-                            {item.date.slice(5)}
+                        {index % 2 === 0 && (
+                          <span className="text-xs text-gray-600">
+                            {getSlotLabel(item)}
                           </span>
                         )}
                       </div>

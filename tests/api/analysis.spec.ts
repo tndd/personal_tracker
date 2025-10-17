@@ -4,6 +4,7 @@
  * - 検証観点:
  *   - condition-trend が日別のコンディション配列を返すこと
  *   - tag-correlation がタグごとの出現回数と平均コンディションを算出すること
+ *   - condition-hourly が任意の粒度で集計を行い、欠損スロットも補完すること
  */
 
 import { expect, test, type APIRequestContext } from "@playwright/test";
@@ -95,5 +96,140 @@ test.describe("analysis API", () => {
     expect(statsB!.usageCount).toBe(2);
     expect(statsB!.averageCondition).not.toBeNull();
     expect(statsB!.averageCondition!).toBeCloseTo((0 + 2) / 2, 3);
+  });
+
+  test("condition-hourly がデフォルト粒度（3h）で集計を返す", async ({ request }) => {
+    // 2つのトラックを作成（3時間以上離れた時刻）
+    const track1 = await request.post("/api/tracks", {
+      data: { condition: -1, memo: "朝" },
+    });
+    expect(track1.status()).toBe(201);
+
+    // 4時間後のトラックを作成するために、少し待つ代わりにcreatedAtを直接操作できないので
+    // ここでは2つのトラックを作成し、期間を指定して取得
+    const track2 = await request.post("/api/tracks", {
+      data: { condition: 2, memo: "昼" },
+    });
+    expect(track2.status()).toBe(201);
+
+    const today = new Date();
+    const from = new Date(today.getTime() - 1 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
+    const to = today.toISOString().slice(0, 10);
+
+    const response = await request.get(
+      `/api/analysis/condition-hourly?granularity=3h&from=${from}&to=${to}`,
+    );
+    expect(response.status()).toBe(200);
+    const body = await response.json();
+
+    // 1日分 = 8スロット、2日分 = 16スロット（ただしfrom-toで1日の場合は8スロット）
+    expect(body.items).toBeDefined();
+    expect(Array.isArray(body.items)).toBe(true);
+    expect(body.granularity).toBe("3h");
+
+    // 各スロットが必要なプロパティを持つことを確認
+    if (body.items.length > 0) {
+      const firstItem = body.items[0];
+      expect(firstItem).toHaveProperty("slotIndex");
+      expect(firstItem).toHaveProperty("startTime");
+      expect(firstItem).toHaveProperty("endTime");
+      expect(firstItem).toHaveProperty("min");
+      expect(firstItem).toHaveProperty("max");
+      expect(firstItem).toHaveProperty("count");
+    }
+  });
+
+  test("condition-hourly が1日単位（1d）で集計を返す", async ({ request }) => {
+    const track1 = await request.post("/api/tracks", {
+      data: { condition: -2, memo: "track1" },
+    });
+    expect(track1.status()).toBe(201);
+
+    const track2 = await request.post("/api/tracks", {
+      data: { condition: 1, memo: "track2" },
+    });
+    expect(track2.status()).toBe(201);
+
+    const today = new Date();
+    const from = new Date(today.getTime() - 2 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
+    const to = today.toISOString().slice(0, 10);
+
+    const response = await request.get(
+      `/api/analysis/condition-hourly?granularity=1d&from=${from}&to=${to}`,
+    );
+    expect(response.status()).toBe(200);
+    const body = await response.json();
+
+    expect(body.items).toBeDefined();
+    expect(Array.isArray(body.items)).toBe(true);
+    expect(body.granularity).toBe("1d");
+
+    // 3日分のスロットが存在するはず
+    expect(body.items.length).toBeGreaterThanOrEqual(3);
+  });
+
+  test("condition-hourly が欠損スロットを補完する", async ({ request }) => {
+    // 1つだけトラックを作成
+    const track = await request.post("/api/tracks", {
+      data: { condition: 0, memo: "single track" },
+    });
+    expect(track.status()).toBe(201);
+
+    const today = new Date();
+    const from = new Date(today.getTime() - 1 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
+    const to = today.toISOString().slice(0, 10);
+
+    const response = await request.get(
+      `/api/analysis/condition-hourly?granularity=6h&from=${from}&to=${to}`,
+    );
+    expect(response.status()).toBe(200);
+    const body = await response.json();
+
+    // 2日分 × 4スロット/日 = 8スロット程度が期待される
+    expect(body.items.length).toBeGreaterThan(0);
+
+    // データがないスロットはmin/max=null, count=0であることを確認
+    const emptySlots = body.items.filter(
+      (item: any) => item.min === null && item.max === null && item.count === 0,
+    );
+    expect(emptySlots.length).toBeGreaterThan(0);
+
+    // データがあるスロットが少なくとも1つ存在することを確認
+    const dataSlots = body.items.filter(
+      (item: any) => item.min !== null && item.max !== null && item.count > 0,
+    );
+    expect(dataSlots.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test("condition-hourly が不正な粒度でエラーを返す", async ({ request }) => {
+    const today = new Date();
+    const from = new Date(today.getTime() - 1 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
+    const to = today.toISOString().slice(0, 10);
+
+    // 不正な粒度フォーマット
+    const response1 = await request.get(
+      `/api/analysis/condition-hourly?granularity=invalid&from=${from}&to=${to}`,
+    );
+    expect(response1.status()).toBe(400);
+
+    // 範囲外の時間単位
+    const response2 = await request.get(
+      `/api/analysis/condition-hourly?granularity=100h&from=${from}&to=${to}`,
+    );
+    expect(response2.status()).toBe(400);
+
+    // 範囲外の週単位
+    const response3 = await request.get(
+      `/api/analysis/condition-hourly?granularity=10w&from=${from}&to=${to}`,
+    );
+    expect(response3.status()).toBe(400);
   });
 });

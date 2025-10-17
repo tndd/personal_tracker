@@ -7,11 +7,51 @@ import { tracks } from "@/lib/db/schema";
 import {
   toJSTDateString,
   fromJSTDateString,
-  getJSTTimeSlot,
   getCurrentJSTDateString,
 } from "@/lib/timezone";
 
+// 粒度のパース
+function parseGranularity(gran: string): { value: number; unit: "h" | "d" | "w" } {
+  const match = gran.match(/^(\d+)([hdw])$/);
+  if (!match) {
+    throw new Error("Invalid granularity format");
+  }
+
+  const value = parseInt(match[1], 10);
+  const unit = match[2] as "h" | "d" | "w";
+
+  // 合理的な範囲に制限
+  if (unit === "h" && (value < 1 || value > 24)) {
+    throw new Error("時間単位は1〜24の範囲で指定してください");
+  }
+  if (unit === "d" && (value < 1 || value > 30)) {
+    throw new Error("日単位は1〜30の範囲で指定してください");
+  }
+  if (unit === "w" && (value < 1 || value > 4)) {
+    throw new Error("週単位は1〜4の範囲で指定してください");
+  }
+
+  return { value, unit };
+}
+
+// 粒度をミリ秒に変換
+function granularityToMs(gran: { value: number; unit: "h" | "d" | "w" }): number {
+  const { value, unit } = gran;
+  switch (unit) {
+    case "h":
+      return value * 60 * 60 * 1000;
+    case "d":
+      return value * 24 * 60 * 60 * 1000;
+    case "w":
+      return value * 7 * 24 * 60 * 60 * 1000;
+  }
+}
+
 const querySchema = z.object({
+  granularity: z
+    .string()
+    .regex(/^\d+[hdw]$/)
+    .default("3h"),
   from: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
@@ -33,9 +73,23 @@ export async function GET(request: Request) {
     );
   }
 
+  // 粒度のパース
+  let granularity: { value: number; unit: "h" | "d" | "w" };
+  try {
+    granularity = parseGranularity(parsed.data.granularity);
+  } catch (error) {
+    return NextResponse.json(
+      { message: error instanceof Error ? error.message : "粒度の指定が不正です" },
+      { status: 400 },
+    );
+  }
+
+  const granularityMs = granularityToMs(granularity);
+
+  // デフォルト期間: 粒度の16区間分
   const today = new Date();
   const defaultTo = getCurrentJSTDateString();
-  const defaultFrom = toJSTDateString(new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000)); // 過去7日間
+  const defaultFrom = toJSTDateString(new Date(today.getTime() - granularityMs * 16));
 
   const from = parsed.data.from ?? defaultFrom;
   const to = parsed.data.to ?? defaultTo;
@@ -67,24 +121,22 @@ export async function GET(request: Request) {
     )
     .orderBy(tracks.createdAt);
 
-  // 3時間単位で集計
-  const slotMap = new Map<string, { min: number; max: number; count: number }>();
+  // 指定粒度で集計
+  const slotMap = new Map<number, { min: number; max: number; count: number }>();
 
   for (const item of data) {
     if (!item.createdAt || item.condition === null) continue;
 
-    const date = new Date(item.createdAt);
-    const dateKey = toJSTDateString(date);
-    const slot = getJSTTimeSlot(date);
-    const key = `${dateKey}-${slot}`;
+    const timestamp = new Date(item.createdAt).getTime();
+    const slotIndex = Math.floor((timestamp - fromDate.getTime()) / granularityMs);
 
-    const existing = slotMap.get(key);
+    const existing = slotMap.get(slotIndex);
     if (existing) {
       existing.min = Math.min(existing.min, item.condition);
       existing.max = Math.max(existing.max, item.condition);
       existing.count += 1;
     } else {
-      slotMap.set(key, {
+      slotMap.set(slotIndex, {
         min: item.condition,
         max: item.condition,
         count: 1,
@@ -92,29 +144,24 @@ export async function GET(request: Request) {
     }
   }
 
-  // 結果を配列に変換
-  const result = Array.from(slotMap.entries()).map(([key, value]) => {
-    // keyは "2025-10-15-2" のような形式なので、最後の"-"で分割
-    const lastDashIndex = key.lastIndexOf("-");
-    const date = key.substring(0, lastDashIndex);
-    const slot = parseInt(key.substring(lastDashIndex + 1), 10);
-    return {
-      date,
-      slot,
-      startHour: slot * 3,
-      endHour: (slot + 1) * 3,
-      min: value.min,
-      max: value.max,
-      count: value.count,
-    };
-  });
+  // 全スロットを生成（欠損を補完）
+  const totalSlots = Math.ceil((toDate.getTime() - fromDate.getTime()) / granularityMs);
+  const result = [];
 
-  // 日付とスロットでソート
-  result.sort((a, b) => {
-    const dateCompare = a.date.localeCompare(b.date);
-    if (dateCompare !== 0) return dateCompare;
-    return a.slot - b.slot;
-  });
+  for (let i = 0; i < totalSlots; i++) {
+    const slotStart = new Date(fromDate.getTime() + i * granularityMs);
+    const slotEnd = new Date(slotStart.getTime() + granularityMs);
 
-  return NextResponse.json({ items: result });
+    const data = slotMap.get(i);
+    result.push({
+      slotIndex: i,
+      startTime: slotStart.toISOString(),
+      endTime: slotEnd.toISOString(),
+      min: data?.min ?? null,
+      max: data?.max ?? null,
+      count: data?.count ?? 0,
+    });
+  }
+
+  return NextResponse.json({ items: result, granularity: parsed.data.granularity });
 }
