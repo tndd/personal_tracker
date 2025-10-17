@@ -257,16 +257,35 @@ function generateTrackData() {
       // タグを選択（よりリアルなパターン）
       let tagIds: string[] = [];
       if (condition >= 1) {
-        // 良い日は活動タグ（複数追加されることも）
+        // 良い日は活動タグ（複数追加されやすい）
         const activityTags = [TAG_WALK, TAG_EXERCISE, TAG_SLEEP_GOOD, TAG_STRETCH, TAG_MEAL];
-        if (Math.random() > 0.2) {
+        // 良い日は必ず1つ以上の活動タグ
+        if (Math.random() > 0.1) {
           tagIds.push(activityTags[Math.floor(Math.random() * activityTags.length)]);
         }
-        if (Math.random() > 0.6) {
-          // 水分補給は高確率
+        // 運動・ストレッチは高確率（condition +2ならさらに高い）
+        if (condition === 2) {
+          if (Math.random() > 0.3 && !tagIds.includes(TAG_EXERCISE)) {
+            tagIds.push(TAG_EXERCISE);
+          }
+          if (Math.random() > 0.4 && !tagIds.includes(TAG_STRETCH)) {
+            tagIds.push(TAG_STRETCH);
+          }
+        }
+        // 良い睡眠は condition +1 以上で高確率
+        if (Math.random() > 0.4 && !tagIds.includes(TAG_SLEEP_GOOD)) {
+          tagIds.push(TAG_SLEEP_GOOD);
+        }
+        // 散歩も高確率
+        if (Math.random() > 0.5 && !tagIds.includes(TAG_WALK)) {
+          tagIds.push(TAG_WALK);
+        }
+        // 水分補給は高確率
+        if (Math.random() > 0.4) {
           tagIds.push(TAG_HYDRATION);
         }
-        if (Math.random() > 0.7 && !tagIds.includes(TAG_MEAL)) {
+        // 食事も高確率
+        if (Math.random() > 0.5 && !tagIds.includes(TAG_MEAL)) {
           tagIds.push(TAG_MEAL);
         }
       } else if (condition <= -1) {
