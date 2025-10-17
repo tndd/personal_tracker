@@ -17,3 +17,21 @@
     text-wrap: balance;
   }
 }
+
+@layer base {
+  /* Chrome系ブラウザでのtime入力ハイライトを抑制 */
+  input[type="time"]::-webkit-datetime-edit-hour-field,
+  input[type="time"]::-webkit-datetime-edit-minute-field,
+  input[type="time"]::-webkit-datetime-edit-second-field,
+  input[type="time"]::-webkit-datetime-edit-text {
+    background-color: transparent;
+    color: inherit;
+  }
+
+  input[type="time"]:focus::-webkit-datetime-edit-hour-field,
+  input[type="time"]:focus::-webkit-datetime-edit-minute-field,
+  input[type="time"]:focus::-webkit-datetime-edit-second-field,
+  input[type="time"]:focus::-webkit-datetime-edit-text {
+    background-color: transparent;
+  }
+}

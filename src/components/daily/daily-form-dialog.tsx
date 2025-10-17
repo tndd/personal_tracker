@@ -185,7 +185,7 @@ export function DailyFormDialog({
                     onClick={(e) => {
                       try {
                         (e.target as HTMLInputElement).showPicker?.();
-                      } catch (error) {
+                      } catch {
                         // showPicker()がサポートされていない場合は何もしない
                       }
                     }}
@@ -202,7 +202,7 @@ export function DailyFormDialog({
                     onClick={(e) => {
                       try {
                         (e.target as HTMLInputElement).showPicker?.();
-                      } catch (error) {
+                      } catch {
                         // showPicker()がサポートされていない場合は何もしない
                       }
                     }}
