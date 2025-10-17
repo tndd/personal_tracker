@@ -19,14 +19,26 @@ type ConditionData = {
 // 粒度の型
 type Granularity = "1d" | "1w" | "1m";
 
-// モックデータ: タグ相関
-const mockTagCorrelation = [
-  { tagName: "頭痛", usageCount: 12, averageCondition: -1.5, color: "#F59E0B" },
-  { tagName: "運動", usageCount: 8, averageCondition: 1.2, color: "#10B981" },
-  { tagName: "服薬", usageCount: 15, averageCondition: -0.3, color: "#3B82F6" },
-  { tagName: "睡眠", usageCount: 6, averageCondition: 0.8, color: "#8B5CF6" },
-  { tagName: "食事", usageCount: 20, averageCondition: 0.2, color: "#EC4899" },
-];
+// タグ寄与度の型
+type TagContribution = {
+  tagId: string;
+  tagName: string;
+  occurrenceCount: number;
+  contribution: number; // 調整後寄与度
+  rawContribution: number; // 生の寄与度
+  confidence: number; // 信頼度 (0.0-1.0)
+};
+
+// タグ相関APIレスポンスの型
+type TagCorrelationResponse = {
+  positive: TagContribution[];
+  negative: TagContribution[];
+  metadata: {
+    priorWeight: number;
+    lagWeights: number[];
+    confidenceThreshold: number;
+  };
+};
 
 function formatDate(date: Date) {
   const year = date.getFullYear();
@@ -67,7 +79,9 @@ function calculateDefaultPeriod(granularity: Granularity): { from: string; to: s
 export default function AnalysisPage() {
   const [granularity, setGranularity] = useState<Granularity>("1d");
   const [conditionData, setConditionData] = useState<ConditionData[]>([]);
+  const [tagCorrelation, setTagCorrelation] = useState<TagCorrelationResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [tagLoading, setTagLoading] = useState(true);
 
   // デフォルト期間（粒度の16区間分）
   const defaultPeriod = calculateDefaultPeriod(granularity);
@@ -81,7 +95,7 @@ export default function AnalysisPage() {
     setToDate(period.to);
   }, [granularity]);
 
-  // データ取得
+  // コンディションデータ取得
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -103,6 +117,30 @@ export default function AnalysisPage() {
       }
     };
     fetchData();
+  }, [granularity, fromDate, toDate]);
+
+  // タグ相関データ取得
+  useEffect(() => {
+    const fetchTagCorrelation = async () => {
+      setTagLoading(true);
+      try {
+        const params = new URLSearchParams({
+          granularity,
+          from: fromDate,
+          to: toDate
+        });
+        const response = await fetch(`/api/analysis/tag-correlation?${params}`);
+        if (response.ok) {
+          const data = await response.json();
+          setTagCorrelation(data);
+        }
+      } catch (error) {
+        console.error("タグ相関データ取得エラー:", error);
+      } finally {
+        setTagLoading(false);
+      }
+    };
+    fetchTagCorrelation();
   }, [granularity, fromDate, toDate]);
 
   // スロットのラベルを生成
@@ -300,44 +338,119 @@ export default function AnalysisPage() {
       {/* タグとコンディションの相関 */}
       <Card>
         <CardHeader>
-          <CardTitle>タグとコンディションの相関</CardTitle>
+          <CardTitle>タグとコンディションの相関（翌日以降への影響）</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3">
-            {mockTagCorrelation.map((item) => (
-              <div
-                key={item.tagName}
-                className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 border-b pb-3 last:border-0"
-              >
-                <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                  <span
-                    className="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium flex-shrink-0"
-                    style={{
-                      backgroundColor: `${item.color}20`,
-                      color: item.color,
-                    }}
-                  >
-                    {item.tagName}
-                  </span>
-                  <span className="text-xs sm:text-sm text-gray-600 truncate">
-                    <span className="hidden sm:inline">出現回数: </span>{item.usageCount}回
-                  </span>
+          {tagLoading ? (
+            <div className="text-center py-8 text-gray-500">読み込み中...</div>
+          ) : !tagCorrelation ? (
+            <div className="text-center py-8 text-gray-500">データがありません</div>
+          ) : (
+            <div className="space-y-6">
+              {/* プラス寄与（コンディション向上に寄与） */}
+              {tagCorrelation.positive.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-green-700 mb-3">
+                    プラス寄与（コンディション向上）
+                  </h3>
+                  <div className="space-y-3">
+                    {tagCorrelation.positive.map((item) => {
+                      const confidencePercent = Math.round(item.confidence * 100);
+                      const isLowConfidence = item.confidence < 0.5;
+                      return (
+                        <div
+                          key={item.tagId}
+                          className={`flex flex-col gap-2 border-b pb-3 last:border-0 ${
+                            isLowConfidence ? "opacity-60" : ""
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium bg-green-100 text-green-800 flex-shrink-0">
+                                {item.tagName}
+                              </span>
+                              <span className="text-xs text-gray-600 truncate">
+                                {item.occurrenceCount}回
+                              </span>
+                            </div>
+                            <div className="text-sm font-medium text-green-600 flex-shrink-0">
+                              +{item.contribution.toFixed(2)}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-green-500"
+                                style={{ width: `${confidencePercent}%` }}
+                              />
+                            </div>
+                            <span className="text-xs text-gray-500 flex-shrink-0 w-10 text-right">
+                              {confidencePercent}%
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-                <div
-                  className={`text-xs sm:text-sm font-medium flex-shrink-0 ${
-                    item.averageCondition > 0
-                      ? "text-green-600"
-                      : item.averageCondition < 0
-                      ? "text-red-600"
-                      : "text-gray-600"
-                  }`}
-                >
-                  平均: {item.averageCondition > 0 ? "+" : ""}
-                  {item.averageCondition.toFixed(1)}
+              )}
+
+              {/* マイナス寄与（コンディション低下に寄与） */}
+              {tagCorrelation.negative.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-red-700 mb-3">
+                    マイナス寄与（コンディション低下）
+                  </h3>
+                  <div className="space-y-3">
+                    {tagCorrelation.negative.map((item) => {
+                      const confidencePercent = Math.round(item.confidence * 100);
+                      const isLowConfidence = item.confidence < 0.5;
+                      return (
+                        <div
+                          key={item.tagId}
+                          className={`flex flex-col gap-2 border-b pb-3 last:border-0 ${
+                            isLowConfidence ? "opacity-60" : ""
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium bg-red-100 text-red-800 flex-shrink-0">
+                                {item.tagName}
+                              </span>
+                              <span className="text-xs text-gray-600 truncate">
+                                {item.occurrenceCount}回
+                              </span>
+                            </div>
+                            <div className="text-sm font-medium text-red-600 flex-shrink-0">
+                              {item.contribution.toFixed(2)}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-red-500"
+                                style={{ width: `${confidencePercent}%` }}
+                              />
+                            </div>
+                            <span className="text-xs text-gray-500 flex-shrink-0 w-10 text-right">
+                              {confidencePercent}%
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              )}
+
+              {/* データがない場合 */}
+              {tagCorrelation.positive.length === 0 && tagCorrelation.negative.length === 0 && (
+                <div className="text-center py-4 text-gray-500">
+                  この期間にタグデータがありません
+                </div>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

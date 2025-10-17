@@ -3,7 +3,7 @@ import { sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/lib/db/client";
-import { tags, tracks } from "@/lib/db/schema";
+import { tags, tracks, dailies } from "@/lib/db/schema";
 
 const querySchema = z.object({
   from: z
@@ -14,6 +14,7 @@ const querySchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .optional(),
+  granularity: z.enum(["1d", "1w", "1m"]).optional(),
 });
 
 function formatDate(date: Date) {
@@ -28,6 +29,47 @@ function toTimestampRange(date: string, isEnd: boolean): Date {
     return new Date(`${date}T23:59:59.999Z`);
   }
   return new Date(`${date}T00:00:00.000Z`);
+}
+
+// 統計計算用の定数
+const LAG_WEIGHTS = [1.0, 0.67, 0.5]; // 翌日, 翌々日, 3日後
+const PRIOR_WEIGHT = 5; // ベイズ平均の仮想データ数
+const PRIOR_MEAN = 0; // 事前仮定値
+const CONFIDENCE_THRESHOLD = 10; // この回数で信頼度100%
+
+// 時間減衰重み付き平均を計算
+function calculateWeightedContribution(
+  records: Array<{ day1: number | null; day2: number | null; day3: number | null }>,
+): number {
+  let weightedSum = 0;
+  let totalWeight = 0;
+
+  records.forEach((rec) => {
+    if (rec.day1 !== null) {
+      weightedSum += rec.day1 * LAG_WEIGHTS[0];
+      totalWeight += LAG_WEIGHTS[0];
+    }
+    if (rec.day2 !== null) {
+      weightedSum += rec.day2 * LAG_WEIGHTS[1];
+      totalWeight += LAG_WEIGHTS[1];
+    }
+    if (rec.day3 !== null) {
+      weightedSum += rec.day3 * LAG_WEIGHTS[2];
+      totalWeight += LAG_WEIGHTS[2];
+    }
+  });
+
+  return totalWeight > 0 ? weightedSum / totalWeight : 0;
+}
+
+// ベイズ平均で調整
+function applyBayesianAdjustment(rawContribution: number, count: number): number {
+  return (rawContribution * count + PRIOR_MEAN * PRIOR_WEIGHT) / (count + PRIOR_WEIGHT);
+}
+
+// 信頼度計算
+function calculateConfidence(count: number): number {
+  return Math.min(1, count / CONFIDENCE_THRESHOLD);
 }
 
 export async function GET(request: Request) {
@@ -58,34 +100,103 @@ export async function GET(request: Request) {
   const fromTimestamp = toTimestampRange(from, false).toISOString();
   const toTimestamp = toTimestampRange(to, true).toISOString();
 
-  const result = await db.execute(
-    sql`
+  // SQLは単純なデータ取得のみ: trackが記録された日付、タグID、翌日以降3日間のdaily condition
+  const result = await db.execute(sql`
+    WITH track_tags AS (
       SELECT
-        tag.id AS tag_id,
-        tag.name AS tag_name,
-        stats.usage_count,
-        stats.avg_condition
-      FROM ${tags} AS tag
-      JOIN (
-        SELECT
-          UNNEST(${tracks.tagIds}) AS tag_id,
-          COUNT(*)::int AS usage_count,
-          AVG(${tracks.condition})::float AS avg_condition
-        FROM ${tracks}
-        WHERE ${tracks.createdAt} BETWEEN ${fromTimestamp} AND ${toTimestamp}
-        GROUP BY tag_id
-      ) AS stats
-        ON stats.tag_id = tag.id
-      ORDER BY stats.usage_count DESC, tag.name ASC
-    `,
-  );
+        UNNEST(tag_ids) AS tag_id,
+        DATE(created_at AT TIME ZONE 'UTC') AS track_date
+      FROM track
+      WHERE created_at BETWEEN ${fromTimestamp} AND ${toTimestamp}
+        AND array_length(tag_ids, 1) > 0
+    )
+    SELECT
+      tt.tag_id,
+      tt.track_date,
+      d1.condition AS day1_condition,
+      d2.condition AS day2_condition,
+      d3.condition AS day3_condition
+    FROM track_tags tt
+    LEFT JOIN daily d1 ON d1.date = tt.track_date + INTERVAL '1 day'
+    LEFT JOIN daily d2 ON d2.date = tt.track_date + INTERVAL '2 days'
+    LEFT JOIN daily d3 ON d3.date = tt.track_date + INTERVAL '3 days'
+  `);
 
-  const items = Array.from(result).map((row) => ({
-    tagId: row.tag_id as string,
-    tagName: row.tag_name as string,
-    usageCount: Number(row.usage_count ?? 0),
-    averageCondition: row.avg_condition !== null ? Number(row.avg_condition) : null,
-  }));
+  // タグごとにグループ化
+  const groupedByTag = new Map<
+    string,
+    Array<{ day1: number | null; day2: number | null; day3: number | null }>
+  >();
 
-  return NextResponse.json({ items });
+  for (const row of result) {
+    const tagId = row.tag_id as string;
+    if (!groupedByTag.has(tagId)) {
+      groupedByTag.set(tagId, []);
+    }
+    groupedByTag.get(tagId)!.push({
+      day1: row.day1_condition !== null ? Number(row.day1_condition) : null,
+      day2: row.day2_condition !== null ? Number(row.day2_condition) : null,
+      day3: row.day3_condition !== null ? Number(row.day3_condition) : null,
+    });
+  }
+
+  // タグ情報を取得
+  const tagIds = Array.from(groupedByTag.keys());
+  if (tagIds.length === 0) {
+    return NextResponse.json({
+      positive: [],
+      negative: [],
+      metadata: {
+        priorWeight: PRIOR_WEIGHT,
+        lagWeights: LAG_WEIGHTS,
+        confidenceThreshold: CONFIDENCE_THRESHOLD,
+      },
+    });
+  }
+
+  const tagInfo = await db.execute(sql`
+    SELECT id, name
+    FROM tag
+    WHERE id = ANY(${sql.raw(`ARRAY[${tagIds.map((id) => `'${id}'`).join(",")}]::uuid[]`)})
+  `);
+
+  const tagIdToName = new Map<string, string>();
+  for (const row of tagInfo) {
+    tagIdToName.set(row.id as string, row.name as string);
+  }
+
+  // 各タグについて統計計算
+  const results = Array.from(groupedByTag.entries()).map(([tagId, records]) => {
+    const rawContribution = calculateWeightedContribution(records);
+    const adjustedContribution = applyBayesianAdjustment(rawContribution, records.length);
+    const confidence = calculateConfidence(records.length);
+
+    return {
+      tagId,
+      tagName: tagIdToName.get(tagId) ?? "Unknown",
+      occurrenceCount: records.length,
+      contribution: adjustedContribution,
+      rawContribution,
+      confidence,
+    };
+  });
+
+  // プラス寄与とマイナス寄与に分類し、|寄与度| × 信頼度 でソート
+  const positive = results
+    .filter((r) => r.contribution > 0)
+    .sort((a, b) => Math.abs(b.contribution) * b.confidence - Math.abs(a.contribution) * a.confidence);
+
+  const negative = results
+    .filter((r) => r.contribution < 0)
+    .sort((a, b) => Math.abs(b.contribution) * b.confidence - Math.abs(a.contribution) * a.confidence);
+
+  return NextResponse.json({
+    positive,
+    negative,
+    metadata: {
+      priorWeight: PRIOR_WEIGHT,
+      lagWeights: LAG_WEIGHTS,
+      confidenceThreshold: CONFIDENCE_THRESHOLD,
+    },
+  });
 }
