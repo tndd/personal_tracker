@@ -10,32 +10,57 @@ import { ArrowUp, LayoutGrid, List, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 
+// モックデータの型定義
+type DailyData = {
+  date: string;
+  memo: string | null;
+  condition: number;
+  sleepStart: string | null;
+  sleepEnd: string | null;
+  sleepQuality: number | null;
+};
+
 // モックデータ
-const mockDailies = [
+const mockDailies: DailyData[] = [
   {
     date: "2025-10-13",
     memo: "今日は調子が良かった。朝から散歩して、午後は読書。夜もぐっすり眠れそう。",
     condition: 1,
+    sleepStart: "2025-10-12T23:30:00.000Z",
+    sleepEnd: "2025-10-13T07:00:00.000Z",
+    sleepQuality: 2,
   },
   {
     date: "2025-10-12",
     memo: "特に変化なし。普通の一日。",
     condition: 0,
+    sleepStart: "2025-10-11T23:00:00.000Z",
+    sleepEnd: "2025-10-12T06:30:00.000Z",
+    sleepQuality: 0,
   },
   {
     date: "2025-10-11",
     memo: "頭痛がひどくて辛い一日だった。早めに薬を飲んで休んだ。",
     condition: -2,
+    sleepStart: "2025-10-10T22:00:00.000Z",
+    sleepEnd: "2025-10-11T05:00:00.000Z",
+    sleepQuality: -2,
   },
   {
     date: "2025-10-10",
     memo: "友人と会ってリフレッシュできた。久しぶりに外食も楽しめた。",
     condition: 2,
+    sleepStart: "2025-10-09T23:00:00.000Z",
+    sleepEnd: "2025-10-10T08:00:00.000Z",
+    sleepQuality: 1,
   },
   {
     date: "2025-10-09",
     memo: null,
     condition: 0,
+    sleepStart: null,
+    sleepEnd: null,
+    sleepQuality: null,
   },
 ];
 
@@ -79,11 +104,20 @@ export default function DailyPage() {
     return dailies.filter((daily) => daily.condition === selectedCondition);
   }, [dailies, selectedCondition]);
 
-  const handleSubmit = (data: { memo: string; condition: number }) => {
+  const handleSubmit = (data: {
+    memo: string;
+    condition: number;
+    sleepStart?: string | null;
+    sleepEnd?: string | null;
+    sleepQuality?: number | null;
+  }) => {
     const updatedDaily = {
       date: selectedDate,
       memo: data.memo || null,
       condition: data.condition,
+      sleepStart: data.sleepStart ?? null,
+      sleepEnd: data.sleepEnd ?? null,
+      sleepQuality: data.sleepQuality ?? null,
     };
 
     // 既存の日記があれば更新、なければ追加
@@ -203,6 +237,9 @@ export default function DailyPage() {
         date={selectedDate}
         initialMemo={dailies.find((d) => d.date === selectedDate)?.memo || ""}
         initialCondition={dailies.find((d) => d.date === selectedDate)?.condition ?? 0}
+        initialSleepStart={dailies.find((d) => d.date === selectedDate)?.sleepStart}
+        initialSleepEnd={dailies.find((d) => d.date === selectedDate)?.sleepEnd}
+        initialSleepQuality={dailies.find((d) => d.date === selectedDate)?.sleepQuality}
       />
     </div>
   );

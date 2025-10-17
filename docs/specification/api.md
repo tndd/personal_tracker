@@ -260,12 +260,15 @@
 ## daily API
 
 ### 共通フィールド
-| フィールド                | 型                  | 説明           |
-| ------------------------- | ------------------- | -------------- |
-| `date`                    | string (YYYY-MM-DD) | 主キー         |
-| `memo`                    | string \| null      | 最大5000文字   |
-| `condition`               | number              | -2〜2          |
-| `createdAt` / `updatedAt` | string              | タイムスタンプ |
+| フィールド                | 型                  | 説明                         |
+| ------------------------- | ------------------- | ---------------------------- |
+| `date`                    | string (YYYY-MM-DD) | 主キー                       |
+| `memo`                    | string \| null      | 最大5000文字                 |
+| `condition`               | number              | -2〜2                        |
+| `sleepStart`              | string \| null      | 就寝時刻（ISO8601形式）      |
+| `sleepEnd`                | string \| null      | 起床時刻（ISO8601形式）      |
+| `sleepQuality`            | number \| null      | 睡眠の質（-2〜2）            |
+| `createdAt` / `updatedAt` | string              | タイムスタンプ               |
 
 ### GET `/api/daily`
 - 説明: 日記の期間取得（デフォルトは直近30日）
@@ -281,6 +284,9 @@
         "date": "2025-01-15",
         "memo": "記録",
         "condition": 1,
+        "sleepStart": "2025-01-14T23:00:00.000Z",
+        "sleepEnd": "2025-01-15T07:00:00.000Z",
+        "sleepQuality": 1,
         "createdAt": "2025-01-15T05:00:00.000Z",
         "updatedAt": "2025-01-15T05:00:00.000Z"
       }
@@ -302,10 +308,14 @@
   ```json
   {
     "memo": "初回記録",
-    "condition": 0
+    "condition": 0,
+    "sleepStart": "2025-01-14T23:00:00.000Z",
+    "sleepEnd": "2025-01-15T07:00:00.000Z",
+    "sleepQuality": 1
   }
   ```
 - 部分更新: 既存値とマージ（例: memo未指定の場合は過去値を保持）
+- 睡眠記録の削除: `sleepStart`, `sleepEnd`, `sleepQuality` に `null` を指定すると削除可能
 - レスポンス 200: 作成・更新後のレコード
 - エラー:
   - `400`: スキーマ不正 / 日付不正

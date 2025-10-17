@@ -55,4 +55,50 @@ test.describe("daily API", () => {
     const missing = await request.get(`/api/daily/${date}`);
     expect(missing.status()).toBe(404);
   });
+
+  test("睡眠記録を作成・更新できる", async ({ request }) => {
+    const date = "2025-01-16";
+
+    // 睡眠記録を含む日記を作成
+    const createResponse = await request.put(`/api/daily/${date}`, {
+      data: {
+        memo: "睡眠記録テスト",
+        condition: 1,
+        sleepStart: "2025-01-15T23:00:00.000Z",
+        sleepEnd: "2025-01-16T07:00:00.000Z",
+        sleepQuality: 2,
+      },
+    });
+    expect(createResponse.status()).toBe(200);
+    const created = await createResponse.json();
+    expect(created.memo).toBe("睡眠記録テスト");
+    expect(created.condition).toBe(1);
+    expect(created.sleepStart).toBe("2025-01-15T23:00:00.000Z");
+    expect(created.sleepEnd).toBe("2025-01-16T07:00:00.000Z");
+    expect(created.sleepQuality).toBe(2);
+
+    // 睡眠の質のみ更新
+    const updateResponse = await request.put(`/api/daily/${date}`, {
+      data: { sleepQuality: 1 },
+    });
+    expect(updateResponse.status()).toBe(200);
+    const updated = await updateResponse.json();
+    expect(updated.sleepQuality).toBe(1);
+    expect(updated.sleepStart).toBe("2025-01-15T23:00:00.000Z");
+    expect(updated.sleepEnd).toBe("2025-01-16T07:00:00.000Z");
+
+    // 睡眠記録をnullで削除
+    const deleteResponse = await request.put(`/api/daily/${date}`, {
+      data: {
+        sleepStart: null,
+        sleepEnd: null,
+        sleepQuality: null,
+      },
+    });
+    expect(deleteResponse.status()).toBe(200);
+    const deleted = await deleteResponse.json();
+    expect(deleted.sleepStart).toBeNull();
+    expect(deleted.sleepEnd).toBeNull();
+    expect(deleted.sleepQuality).toBeNull();
+  });
 });

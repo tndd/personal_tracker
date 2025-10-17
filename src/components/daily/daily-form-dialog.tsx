@@ -9,10 +9,19 @@ import { X } from "lucide-react";
 interface DailyFormDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: { memo: string; condition: number }) => void;
+  onSubmit: (data: {
+    memo: string;
+    condition: number;
+    sleepStart?: string | null;
+    sleepEnd?: string | null;
+    sleepQuality?: number | null;
+  }) => void;
   date: string; // YYYY-MM-DD
   initialMemo?: string; // 既存の日記内容（編集時）
   initialCondition?: number; // 既存のコンディション（編集時）
+  initialSleepStart?: string | null; // 既存の就寝時刻（編集時）
+  initialSleepEnd?: string | null; // 既存の起床時刻（編集時）
+  initialSleepQuality?: number | null; // 既存の睡眠の質（編集時）
 }
 
 const conditionOptions = [
@@ -30,26 +39,59 @@ export function DailyFormDialog({
   date,
   initialMemo = "",
   initialCondition = 0,
+  initialSleepStart = null,
+  initialSleepEnd = null,
+  initialSleepQuality = null,
 }: DailyFormDialogProps) {
   const [memo, setMemo] = useState(initialMemo);
   const [condition, setCondition] = useState(initialCondition);
+  const [sleepStart, setSleepStart] = useState(initialSleepStart);
+  const [sleepEnd, setSleepEnd] = useState(initialSleepEnd);
+  const [sleepQuality, setSleepQuality] = useState<number | null>(initialSleepQuality);
 
   // ダイアログが開いた時に既存データで初期化
   useEffect(() => {
     if (isOpen) {
       setMemo(initialMemo);
       setCondition(initialCondition);
+      setSleepStart(initialSleepStart);
+      setSleepEnd(initialSleepEnd);
+      setSleepQuality(initialSleepQuality);
     }
-  }, [isOpen, initialMemo, initialCondition]);
+  }, [isOpen, initialMemo, initialCondition, initialSleepStart, initialSleepEnd, initialSleepQuality]);
 
   if (!isOpen || !date) return null;
 
   const handleSubmit = () => {
-    onSubmit({ memo: memo.trim(), condition });
+    onSubmit({
+      memo: memo.trim(),
+      condition,
+      sleepStart,
+      sleepEnd,
+      sleepQuality,
+    });
     // リセット
     setMemo("");
     setCondition(0);
+    setSleepStart(null);
+    setSleepEnd(null);
+    setSleepQuality(null);
     onClose();
+  };
+
+  // 時刻文字列をローカル時刻入力用に変換 (YYYY-MM-DDTHH:mm)
+  const formatDateTimeLocal = (isoString: string | null) => {
+    if (!isoString) return "";
+    const date = new Date(isoString);
+    const offset = date.getTimezoneOffset();
+    const localDate = new Date(date.getTime() - offset * 60 * 1000);
+    return localDate.toISOString().slice(0, 16);
+  };
+
+  // ローカル時刻入力からISO文字列に変換
+  const parseLocalDateTime = (localString: string) => {
+    if (!localString) return null;
+    return new Date(localString).toISOString();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -121,6 +163,54 @@ export function DailyFormDialog({
                     </div>
                   </button>
                 ))}
+              </div>
+            </div>
+
+            {/* 睡眠記録 */}
+            <div className="space-y-3 rounded-lg border p-4">
+              <label className="text-sm font-medium">睡眠記録</label>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs text-gray-600">就寝時刻</label>
+                  <input
+                    type="datetime-local"
+                    value={formatDateTimeLocal(sleepStart)}
+                    onChange={(e) => setSleepStart(parseLocalDateTime(e.target.value))}
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs text-gray-600">起床時刻</label>
+                  <input
+                    type="datetime-local"
+                    value={formatDateTimeLocal(sleepEnd)}
+                    onChange={(e) => setSleepEnd(parseLocalDateTime(e.target.value))}
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs text-gray-600">睡眠の質</label>
+                <div className="grid grid-cols-5 gap-2">
+                  {conditionOptions.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setSleepQuality(option.value)}
+                      className={`flex flex-col items-center gap-1 rounded-md border-2 p-2 transition-colors ${
+                        sleepQuality === option.value
+                          ? "border-blue-500 bg-blue-50"
+                          : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                      }`}
+                    >
+                      <span className={`h-6 w-6 rounded-full ${option.bgColor}`} />
+                      <div className="text-xs">{option.label}</div>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 

@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
-import { Edit2 } from "lucide-react";
+import { Edit2, Moon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 // コンディションの表示用（色ベース）
@@ -17,12 +17,39 @@ interface DailyCardProps {
   date: string; // YYYY-MM-DD
   memo: string | null;
   condition: number;
+  sleepStart?: string | null;
+  sleepEnd?: string | null;
+  sleepQuality?: number | null;
   onEdit?: () => void;
 }
 
-export function DailyCard({ date, memo, condition, onEdit }: DailyCardProps) {
+export function DailyCard({
+  date,
+  memo,
+  condition,
+  sleepStart,
+  sleepEnd,
+  sleepQuality,
+  onEdit,
+}: DailyCardProps) {
   const config = conditionConfig[condition as keyof typeof conditionConfig];
   const dateObj = new Date(date + "T00:00:00");
+
+  // 睡眠時間を計算（時間単位）
+  const calculateSleepDuration = () => {
+    if (!sleepStart || !sleepEnd) return null;
+    const start = new Date(sleepStart);
+    const end = new Date(sleepEnd);
+    const durationMs = end.getTime() - start.getTime();
+    const hours = Math.floor(durationMs / (1000 * 60 * 60));
+    const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
+    return { hours, minutes };
+  };
+
+  const sleepDuration = calculateSleepDuration();
+  const sleepQualityConfig = sleepQuality !== null && sleepQuality !== undefined
+    ? conditionConfig[sleepQuality as keyof typeof conditionConfig]
+    : null;
 
   return (
     <Card className="hover:shadow-md transition-shadow">
@@ -40,7 +67,24 @@ export function DailyCard({ date, memo, condition, onEdit }: DailyCardProps) {
           </Button>
         </div>
       </CardHeader>
-      <CardContent className="pt-0">
+      <CardContent className="pt-0 space-y-3">
+        {/* 睡眠情報 */}
+        {sleepDuration && (
+          <div className="flex items-center gap-2 text-sm text-gray-600 bg-indigo-50 rounded-md p-2">
+            <Moon className="h-4 w-4 text-indigo-600" />
+            <span>
+              睡眠: {sleepDuration.hours}時間{sleepDuration.minutes > 0 ? `${sleepDuration.minutes}分` : ""}
+            </span>
+            {sleepQualityConfig && (
+              <span className="flex items-center gap-1">
+                <span className={`h-4 w-4 rounded-full ${sleepQualityConfig.bgColor}`} />
+                <span className="text-xs">{sleepQualityConfig.label}</span>
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* 日記内容 */}
         {memo ? (
           <p className="text-sm sm:text-base text-gray-700 whitespace-pre-wrap break-words">{memo}</p>
         ) : (
