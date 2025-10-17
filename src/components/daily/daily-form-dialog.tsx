@@ -14,14 +14,12 @@ interface DailyFormDialogProps {
     condition: number;
     sleepStart?: string | null;
     sleepEnd?: string | null;
-    sleepQuality?: number | null;
   }) => void;
   date: string; // YYYY-MM-DD
   initialMemo?: string; // 既存の日記内容（編集時）
   initialCondition?: number; // 既存のコンディション（編集時）
   initialSleepStart?: string | null; // 既存の就寝時刻（編集時）
   initialSleepEnd?: string | null; // 既存の起床時刻（編集時）
-  initialSleepQuality?: number | null; // 既存の睡眠の質（編集時）
 }
 
 const conditionOptions = [
@@ -41,13 +39,11 @@ export function DailyFormDialog({
   initialCondition = 0,
   initialSleepStart = null,
   initialSleepEnd = null,
-  initialSleepQuality = null,
 }: DailyFormDialogProps) {
   const [memo, setMemo] = useState(initialMemo);
   const [condition, setCondition] = useState(initialCondition);
   const [sleepStart, setSleepStart] = useState(initialSleepStart);
   const [sleepEnd, setSleepEnd] = useState(initialSleepEnd);
-  const [sleepQuality, setSleepQuality] = useState<number | null>(initialSleepQuality);
 
   // ダイアログが開いた時に既存データで初期化
   useEffect(() => {
@@ -56,9 +52,8 @@ export function DailyFormDialog({
       setCondition(initialCondition);
       setSleepStart(initialSleepStart);
       setSleepEnd(initialSleepEnd);
-      setSleepQuality(initialSleepQuality);
     }
-  }, [isOpen, initialMemo, initialCondition, initialSleepStart, initialSleepEnd, initialSleepQuality]);
+  }, [isOpen, initialMemo, initialCondition, initialSleepStart, initialSleepEnd]);
 
   if (!isOpen || !date) return null;
 
@@ -68,14 +63,12 @@ export function DailyFormDialog({
       condition,
       sleepStart,
       sleepEnd,
-      sleepQuality,
     });
     // リセット
     setMemo("");
     setCondition(0);
     setSleepStart(null);
     setSleepEnd(null);
-    setSleepQuality(null);
     onClose();
   };
 
@@ -189,7 +182,14 @@ export function DailyFormDialog({
                     type="time"
                     value={formatTimeOnly(sleepStart)}
                     onChange={(e) => setSleepStart(parseTimeToISO(e.target.value, date))}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                    onClick={(e) => {
+                      try {
+                        (e.target as HTMLInputElement).showPicker?.();
+                      } catch (error) {
+                        // showPicker()がサポートされていない場合は何もしない
+                      }
+                    }}
+                    className="w-full cursor-pointer rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                   />
                 </div>
 
@@ -199,29 +199,15 @@ export function DailyFormDialog({
                     type="time"
                     value={formatTimeOnly(sleepEnd)}
                     onChange={(e) => setSleepEnd(parseTimeToISO(e.target.value, date))}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                    onClick={(e) => {
+                      try {
+                        (e.target as HTMLInputElement).showPicker?.();
+                      } catch (error) {
+                        // showPicker()がサポートされていない場合は何もしない
+                      }
+                    }}
+                    className="w-full cursor-pointer rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                   />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xs text-gray-600">睡眠の質</label>
-                <div className="grid grid-cols-5 gap-2">
-                  {conditionOptions.map((option) => (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => setSleepQuality(option.value)}
-                      className={`flex flex-col items-center gap-1 rounded-md border-2 p-2 transition-colors ${
-                        sleepQuality === option.value
-                          ? "border-blue-500 bg-blue-50"
-                          : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
-                      }`}
-                    >
-                      <span className={`h-6 w-6 rounded-full ${option.bgColor}`} />
-                      <div className="text-xs">{option.label}</div>
-                    </button>
-                  ))}
                 </div>
               </div>
             </div>
