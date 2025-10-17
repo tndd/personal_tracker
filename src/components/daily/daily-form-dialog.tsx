@@ -79,19 +79,31 @@ export function DailyFormDialog({
     onClose();
   };
 
-  // 時刻文字列をローカル時刻入力用に変換 (YYYY-MM-DDTHH:mm)
-  const formatDateTimeLocal = (isoString: string | null) => {
+  // ISO文字列から時刻部分のみ抽出 (HH:mm)
+  const formatTimeOnly = (isoString: string | null) => {
     if (!isoString) return "";
     const date = new Date(isoString);
-    const offset = date.getTimezoneOffset();
-    const localDate = new Date(date.getTime() - offset * 60 * 1000);
-    return localDate.toISOString().slice(0, 16);
+    const hours = String(date.getHours()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+    return `${hours}:${minutes}`;
   };
 
-  // ローカル時刻入力からISO文字列に変換
-  const parseLocalDateTime = (localString: string) => {
-    if (!localString) return null;
-    return new Date(localString).toISOString();
+  // 時刻文字列(HH:mm)とベース日付からISO文字列を生成
+  const parseTimeToISO = (timeString: string, baseDate: string) => {
+    if (!timeString) return null;
+    const [hours, minutes] = timeString.split(":");
+    // 就寝時刻の場合は前日の可能性を考慮
+    // 例: 23:00 -> 前日の23:00、07:00 -> 当日の07:00
+    const targetDate = new Date(baseDate + "T00:00:00");
+    const timeValue = parseInt(hours) * 60 + parseInt(minutes);
+
+    // 就寝時刻が遅い時間(19:00以降)の場合は前日とみなす
+    if (timeValue >= 19 * 60) {
+      targetDate.setDate(targetDate.getDate() - 1);
+    }
+
+    targetDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+    return targetDate.toISOString();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -174,9 +186,9 @@ export function DailyFormDialog({
                 <div className="space-y-1">
                   <label className="text-xs text-gray-600">就寝時刻</label>
                   <input
-                    type="datetime-local"
-                    value={formatDateTimeLocal(sleepStart)}
-                    onChange={(e) => setSleepStart(parseLocalDateTime(e.target.value))}
+                    type="time"
+                    value={formatTimeOnly(sleepStart)}
+                    onChange={(e) => setSleepStart(parseTimeToISO(e.target.value, date))}
                     className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                   />
                 </div>
@@ -184,9 +196,9 @@ export function DailyFormDialog({
                 <div className="space-y-1">
                   <label className="text-xs text-gray-600">起床時刻</label>
                   <input
-                    type="datetime-local"
-                    value={formatDateTimeLocal(sleepEnd)}
-                    onChange={(e) => setSleepEnd(parseLocalDateTime(e.target.value))}
+                    type="time"
+                    value={formatTimeOnly(sleepEnd)}
+                    onChange={(e) => setSleepEnd(parseTimeToISO(e.target.value, date))}
                     className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                   />
                 </div>
