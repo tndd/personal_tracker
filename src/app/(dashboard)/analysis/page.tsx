@@ -17,7 +17,7 @@ type ConditionData = {
 };
 
 // 粒度の型
-type Granularity = "3h" | "6h" | "12h" | "1d" | "3d" | "1w";
+type Granularity = "1d" | "1w" | "1m";
 
 // モックデータ: タグ相関
 const mockTagCorrelation = [
@@ -37,19 +37,19 @@ function formatDate(date: Date) {
 
 // 粒度をミリ秒に変換
 function granularityToMs(gran: Granularity): number {
-  const match = gran.match(/^(\d+)([hdw])$/);
+  const match = gran.match(/^(\d+)([dwm])$/);
   if (!match) return 0;
 
   const value = parseInt(match[1], 10);
   const unit = match[2];
 
   switch (unit) {
-    case "h":
-      return value * 60 * 60 * 1000;
     case "d":
       return value * 24 * 60 * 60 * 1000;
     case "w":
       return value * 7 * 24 * 60 * 60 * 1000;
+    case "m":
+      return value * 30 * 24 * 60 * 60 * 1000; // 30日として概算
     default:
       return 0;
   }
@@ -65,7 +65,7 @@ function calculateDefaultPeriod(granularity: Granularity): { from: string; to: s
 }
 
 export default function AnalysisPage() {
-  const [granularity, setGranularity] = useState<Granularity>("3h");
+  const [granularity, setGranularity] = useState<Granularity>("1d");
   const [conditionData, setConditionData] = useState<ConditionData[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -109,17 +109,12 @@ export default function AnalysisPage() {
   const getSlotLabel = (item: ConditionData) => {
     const start = new Date(item.startTime);
 
-    // 時間表示（時間単位の粒度）
-    if (granularity.endsWith("h")) {
-      return `${start.getHours()}h`;
-    }
-
     // 日付表示（日単位の粒度）
     if (granularity === "1d") {
       return `${start.getMonth() + 1}/${start.getDate()}`;
     }
 
-    // 期間表示（3日、1週間単位の粒度）
+    // 期間表示（週単位、月単位の粒度）
     return `${start.getMonth() + 1}/${start.getDate()}`;
   };
 
@@ -138,7 +133,7 @@ export default function AnalysisPage() {
           <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
             <label className="text-sm font-medium text-gray-700">粒度:</label>
             <div className="flex flex-wrap gap-2">
-              {(["3h", "6h", "12h", "1d", "3d", "1w"] as Granularity[]).map((gran) => (
+              {(["1d", "1w", "1m"] as Granularity[]).map((gran) => (
                 <button
                   key={gran}
                   onClick={() => setGranularity(gran)}
