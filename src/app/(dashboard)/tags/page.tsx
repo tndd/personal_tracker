@@ -222,6 +222,7 @@ export default function TagsPage() {
             name: tagName,
             color: category.color, // カテゴリの色を使用
             sortOrder: cat.tags.length,
+            archived: false,
           };
 
           return {
@@ -263,6 +264,7 @@ export default function TagsPage() {
         name: data.name,
         color: data.color,
         tags: [],
+        archived: false,
       };
       setCategories((prev) => [...prev, newCategory]);
       setExpandedCategories((prev) => {
@@ -275,9 +277,6 @@ export default function TagsPage() {
 
   // フィルタリングされたカテゴリを取得
   const filteredCategories = getFilteredCategories();
-
-  // 非アーカイブのカテゴリを取得（サイドバー表示用）
-  const activeCategories = categories.filter((cat) => !cat.archived);
 
   // サイドバーにタグナビゲーションを表示
   useEffect(() => {

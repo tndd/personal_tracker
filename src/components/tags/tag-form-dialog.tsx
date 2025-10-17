@@ -20,6 +20,8 @@ export function TagFormDialog({
   onClose,
   onSubmit,
   categoryName,
+  // categoryColor は現在使用されていない（プレビュー機能削除のため）
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   categoryColor,
   initialName = "",
 }: TagFormDialogProps) {
