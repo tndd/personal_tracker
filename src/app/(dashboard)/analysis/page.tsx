@@ -348,100 +348,110 @@ export default function AnalysisPage() {
           ) : (
             <div className="space-y-6">
               {/* プラス寄与（コンディション向上に寄与） */}
-              {tagCorrelation.positive.length > 0 && (
-                <div>
-                  <h3 className="text-sm font-semibold text-green-700 mb-3">
-                    プラス寄与（コンディション向上）
-                  </h3>
-                  <div className="space-y-3">
-                    {tagCorrelation.positive.map((item) => {
-                      const confidencePercent = Math.round(item.confidence * 100);
-                      const isLowConfidence = item.confidence < 0.5;
-                      return (
-                        <div
-                          key={item.tagId}
-                          className={`flex flex-col gap-2 border-b pb-3 last:border-0 ${
-                            isLowConfidence ? "opacity-60" : ""
-                          }`}
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <span className="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium bg-green-100 text-green-800 flex-shrink-0">
-                                {item.tagName}
-                              </span>
-                              <span className="text-xs text-gray-600 truncate">
-                                {item.occurrenceCount}回
-                              </span>
+              {tagCorrelation.positive.length > 0 && (() => {
+                // プラス寄与の最大値を計算
+                const maxContribution = Math.max(...tagCorrelation.positive.map(item => Math.abs(item.contribution)));
+                return (
+                  <div>
+                    <h3 className="text-sm font-semibold text-green-700 mb-3">
+                      プラス寄与（コンディション向上）
+                    </h3>
+                    <div className="space-y-3">
+                      {tagCorrelation.positive.map((item) => {
+                        const barWidth = maxContribution > 0 ? (Math.abs(item.contribution) / maxContribution) * 100 : 0;
+                        const confidencePercent = Math.round(item.confidence * 100);
+                        return (
+                          <div
+                            key={item.tagId}
+                            className="flex flex-col gap-2 border-b pb-3 last:border-0"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium bg-green-100 text-green-800 flex-shrink-0">
+                                  {item.tagName}
+                                </span>
+                                <span className="text-xs text-gray-600 truncate">
+                                  {item.occurrenceCount}回
+                                </span>
+                              </div>
+                              <div className="text-sm font-medium text-green-600 flex-shrink-0">
+                                +{item.contribution.toFixed(2)}
+                              </div>
                             </div>
-                            <div className="text-sm font-medium text-green-600 flex-shrink-0">
-                              +{item.contribution.toFixed(2)}
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-green-500 transition-opacity"
+                                  style={{
+                                    width: `${barWidth}%`,
+                                    opacity: item.confidence
+                                  }}
+                                />
+                              </div>
+                              <span className="text-xs text-gray-500 flex-shrink-0 w-10 text-right">
+                                {confidencePercent}%
+                              </span>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
-                              <div
-                                className="h-full bg-green-500"
-                                style={{ width: `${confidencePercent}%` }}
-                              />
-                            </div>
-                            <span className="text-xs text-gray-500 flex-shrink-0 w-10 text-right">
-                              {confidencePercent}%
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* マイナス寄与（コンディション低下に寄与） */}
-              {tagCorrelation.negative.length > 0 && (
-                <div>
-                  <h3 className="text-sm font-semibold text-red-700 mb-3">
-                    マイナス寄与（コンディション低下）
-                  </h3>
-                  <div className="space-y-3">
-                    {tagCorrelation.negative.map((item) => {
-                      const confidencePercent = Math.round(item.confidence * 100);
-                      const isLowConfidence = item.confidence < 0.5;
-                      return (
-                        <div
-                          key={item.tagId}
-                          className={`flex flex-col gap-2 border-b pb-3 last:border-0 ${
-                            isLowConfidence ? "opacity-60" : ""
-                          }`}
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <span className="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium bg-red-100 text-red-800 flex-shrink-0">
-                                {item.tagName}
-                              </span>
-                              <span className="text-xs text-gray-600 truncate">
-                                {item.occurrenceCount}回
-                              </span>
+              {tagCorrelation.negative.length > 0 && (() => {
+                // マイナス寄与の最大値を計算
+                const maxContribution = Math.max(...tagCorrelation.negative.map(item => Math.abs(item.contribution)));
+                return (
+                  <div>
+                    <h3 className="text-sm font-semibold text-red-700 mb-3">
+                      マイナス寄与（コンディション低下）
+                    </h3>
+                    <div className="space-y-3">
+                      {tagCorrelation.negative.map((item) => {
+                        const barWidth = maxContribution > 0 ? (Math.abs(item.contribution) / maxContribution) * 100 : 0;
+                        const confidencePercent = Math.round(item.confidence * 100);
+                        return (
+                          <div
+                            key={item.tagId}
+                            className="flex flex-col gap-2 border-b pb-3 last:border-0"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium bg-red-100 text-red-800 flex-shrink-0">
+                                  {item.tagName}
+                                </span>
+                                <span className="text-xs text-gray-600 truncate">
+                                  {item.occurrenceCount}回
+                                </span>
+                              </div>
+                              <div className="text-sm font-medium text-red-600 flex-shrink-0">
+                                {item.contribution.toFixed(2)}
+                              </div>
                             </div>
-                            <div className="text-sm font-medium text-red-600 flex-shrink-0">
-                              {item.contribution.toFixed(2)}
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-red-500 transition-opacity"
+                                  style={{
+                                    width: `${barWidth}%`,
+                                    opacity: item.confidence
+                                  }}
+                                />
+                              </div>
+                              <span className="text-xs text-gray-500 flex-shrink-0 w-10 text-right">
+                                {confidencePercent}%
+                              </span>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
-                              <div
-                                className="h-full bg-red-500"
-                                style={{ width: `${confidencePercent}%` }}
-                              />
-                            </div>
-                            <span className="text-xs text-gray-500 flex-shrink-0 w-10 text-right">
-                              {confidencePercent}%
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* データがない場合 */}
               {tagCorrelation.positive.length === 0 && tagCorrelation.negative.length === 0 && (

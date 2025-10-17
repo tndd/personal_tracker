@@ -181,14 +181,14 @@ export async function GET(request: Request) {
     };
   });
 
-  // プラス寄与とマイナス寄与に分類し、|寄与度| × 信頼度 でソート
+  // プラス寄与とマイナス寄与に分類し、|寄与度| でソート
   const positive = results
     .filter((r) => r.contribution > 0)
-    .sort((a, b) => Math.abs(b.contribution) * b.confidence - Math.abs(a.contribution) * a.confidence);
+    .sort((a, b) => Math.abs(b.contribution) - Math.abs(a.contribution));
 
   const negative = results
     .filter((r) => r.contribution < 0)
-    .sort((a, b) => Math.abs(b.contribution) * b.confidence - Math.abs(a.contribution) * a.confidence);
+    .sort((a, b) => Math.abs(b.contribution) - Math.abs(a.contribution));
 
   return NextResponse.json({
     positive,
