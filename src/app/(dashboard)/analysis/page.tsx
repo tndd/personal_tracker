@@ -193,99 +193,65 @@ export default function AnalysisPage() {
               {/* グラフ（比率ベースの積み上げバー） */}
               <div className="overflow-x-auto -mx-2 sm:mx-0">
                 <div className="relative min-w-max p-2 sm:p-4">
-                  {/* 最大高さ（px） */}
+                  {/* 積み上げバー */}
                   {(() => {
-                    const MAX_HEIGHT = 120;
+                    const BAR_HEIGHT = 200; // バー全体の高さ
 
                     return (
-                      <>
-                        {/* プラス方向のエリア（上部） */}
-                        <div className="flex gap-1" style={{ height: `${MAX_HEIGHT}px` }}>
-                          {conditionData.map((item) => {
-                            const hasData = item.count > 0;
-                            const ratios = item.ratios || {};
-                            // +2と+1の比率
-                            const ratio2 = ratios[2] || 0;
-                            const ratio1 = ratios[1] || 0;
-                            const totalPositive = ratio2 + ratio1;
+                      <div className="flex gap-1 items-end" style={{ height: `${BAR_HEIGHT}px` }}>
+                        {conditionData.map((item) => {
+                          const hasData = item.count > 0;
+                          const ratios = item.ratios || {};
 
-                            return (
-                              <div key={`${item.slotIndex}-top`} className="w-8 flex flex-col-reverse">
-                                {hasData && totalPositive > 0 ? (
-                                  <>
-                                    {/* +1の領域（下側） */}
-                                    {ratio1 > 0 && (
-                                      <div
-                                        className="bg-green-400"
-                                        style={{ height: `${(ratio1 * MAX_HEIGHT)}px` }}
-                                      />
-                                    )}
-                                    {/* +2の領域（上側） */}
-                                    {ratio2 > 0 && (
-                                      <div
-                                        className="bg-green-500"
-                                        style={{ height: `${(ratio2 * MAX_HEIGHT)}px` }}
-                                      />
-                                    )}
-                                  </>
-                                ) : null}
-                              </div>
-                            );
-                          })}
-                        </div>
-
-                        {/* 0の段（基準線） */}
-                        <div className="flex gap-1" style={{ height: '20px' }}>
-                          {conditionData.map((item) => {
-                            const hasData = item.count > 0;
-                            const ratios = item.ratios || {};
-                            const ratio0 = ratios[0] || 0;
-
-                            return (
-                              <div key={`${item.slotIndex}-zero`} className="w-8">
-                                {hasData && ratio0 > 0 && (
-                                  <div className="bg-gray-400 h-full" />
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-
-                        {/* マイナス方向のエリア（下部） */}
-                        <div className="flex gap-1" style={{ height: `${MAX_HEIGHT}px` }}>
-                          {conditionData.map((item) => {
-                            const hasData = item.count > 0;
-                            const ratios = item.ratios || {};
-                            // -1と-2の比率
-                            const ratioMinus1 = ratios[-1] || 0;
-                            const ratioMinus2 = ratios[-2] || 0;
-                            const totalNegative = ratioMinus1 + ratioMinus2;
-
-                            return (
-                              <div key={`${item.slotIndex}-bottom`} className="w-8 flex flex-col">
-                                {hasData && totalNegative > 0 ? (
-                                  <>
-                                    {/* -1の領域（上側） */}
-                                    {ratioMinus1 > 0 && (
-                                      <div
-                                        className="bg-orange-400"
-                                        style={{ height: `${(ratioMinus1 * MAX_HEIGHT)}px` }}
-                                      />
-                                    )}
-                                    {/* -2の領域（下側） */}
-                                    {ratioMinus2 > 0 && (
-                                      <div
-                                        className="bg-red-500"
-                                        style={{ height: `${(ratioMinus2 * MAX_HEIGHT)}px` }}
-                                      />
-                                    )}
-                                  </>
-                                ) : null}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </>
+                          return (
+                            <div
+                              key={`${item.slotIndex}-bar`}
+                              className="w-8 flex flex-col justify-end"
+                              style={{ height: `${BAR_HEIGHT}px` }}
+                            >
+                              {hasData ? (
+                                <div className="flex flex-col" style={{ height: `${BAR_HEIGHT}px` }}>
+                                  {/* +2の領域（最上部） */}
+                                  {ratios[2] > 0 && (
+                                    <div
+                                      className="bg-green-500"
+                                      style={{ height: `${(ratios[2] * BAR_HEIGHT)}px` }}
+                                    />
+                                  )}
+                                  {/* +1の領域 */}
+                                  {ratios[1] > 0 && (
+                                    <div
+                                      className="bg-green-400"
+                                      style={{ height: `${(ratios[1] * BAR_HEIGHT)}px` }}
+                                    />
+                                  )}
+                                  {/* 0の領域（中央） */}
+                                  {ratios[0] > 0 && (
+                                    <div
+                                      className="bg-gray-400"
+                                      style={{ height: `${(ratios[0] * BAR_HEIGHT)}px` }}
+                                    />
+                                  )}
+                                  {/* -1の領域 */}
+                                  {ratios[-1] > 0 && (
+                                    <div
+                                      className="bg-orange-400"
+                                      style={{ height: `${(ratios[-1] * BAR_HEIGHT)}px` }}
+                                    />
+                                  )}
+                                  {/* -2の領域（最下部） */}
+                                  {ratios[-2] > 0 && (
+                                    <div
+                                      className="bg-red-500"
+                                      style={{ height: `${(ratios[-2] * BAR_HEIGHT)}px` }}
+                                    />
+                                  )}
+                                </div>
+                              ) : null}
+                            </div>
+                          );
+                        })}
+                      </div>
                     );
                   })()}
 
