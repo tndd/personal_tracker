@@ -136,6 +136,7 @@ export function TrackSidebarContent({
                     : "border-2 border-transparent hover:bg-gray-100"
                 }`}
                 title={`コンディション: ${option.label}`}
+                aria-label={`コンディション: ${option.label}`}
               >
                 <div className={`flex items-center justify-center h-[20px]`}>
                   <div className={`${option.size} rounded-full ${option.color} flex-shrink-0`} />
@@ -177,6 +178,8 @@ export function TrackSidebarContent({
                   <button
                     onClick={() => toggleCategory(category.id)}
                     className="flex items-center gap-2 w-full text-left px-2 py-1.5 rounded hover:bg-gray-100 transition-colors"
+                    aria-expanded={isExpanded}
+                    aria-controls={`tag-filter-${category.id}`}
                   >
                     {isExpanded ? (
                       <ChevronDown className="h-4 w-4 text-gray-500" />
@@ -197,7 +200,10 @@ export function TrackSidebarContent({
 
                   {/* タグリスト */}
                   {isExpanded && (
-                    <div className="ml-6 space-y-1">
+                    <div
+                      id={`tag-filter-${category.id}`}
+                      className="ml-6 space-y-1"
+                    >
                       {category.tags.length === 0 ? (
                         <div className="text-xs text-gray-400 px-2 py-1">
                           タグがありません
@@ -206,6 +212,7 @@ export function TrackSidebarContent({
                         category.tags.map((tag) => (
                           <label
                             key={tag.id}
+                            data-testid="tag-filter-item"
                             className="flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-100 transition-colors cursor-pointer"
                           >
                             <input

@@ -171,10 +171,19 @@ test.describe("トラック画面のコンディションフィルター", () =>
     await expect(page.getByText("普通の一日")).toBeHidden();
 
     // タグツリーを展開
-    await page.getByRole("button", { name: /テストカテゴリ/ }).click();
+    const categoryToggle = page.getByRole("button", { name: /テストカテゴリ/ });
+    const expanded = await categoryToggle.getAttribute("aria-expanded");
+    if (expanded !== "true") {
+      await categoryToggle.click();
+      await expect(categoryToggle).toHaveAttribute("aria-expanded", "true");
+    }
 
     // テストタグを選択
-    await page.getByText("テストタグ").click();
+    const tagFilterItem = page
+      .locator('[data-testid="tag-filter-item"]', { hasText: "テストタグ" })
+      .first();
+    await expect(tagFilterItem).toBeVisible();
+    await tagFilterItem.click();
 
     // コンディションとタグの両方に該当する2件が表示される
     await expect(page.getByText("最高の一日")).toBeVisible();

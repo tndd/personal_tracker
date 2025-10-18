@@ -24,9 +24,19 @@ type TagContribution = {
   tagId: string;
   tagName: string;
   occurrenceCount: number;
-  contribution: number; // 調整後寄与度
-  rawContribution: number; // 生の寄与度
-  confidence: number; // 信頼度 (0.0-1.0)
+  observationCount: number;
+  effectiveSampleSize: number;
+  totalWeight: number;
+  rawMean: number | null;
+  baselineMean: number;
+  contribution: number; // ベイズ調整後の寄与度
+  rawContribution: number; // ベースラインからの差分（未調整）
+  confidence: number; // 信頼度指標 (0.0-1.0)
+  probabilitySameSign: number; // 符号が維持される事後確率 (0.5-1.0)
+  credibleInterval: {
+    lower: number;
+    upper: number;
+  };
 };
 
 // タグ相関APIレスポンスの型
@@ -35,8 +45,10 @@ type TagCorrelationResponse = {
   negative: TagContribution[];
   metadata: {
     priorWeight: number;
+    priorMean: number;
+    priorVariance: number;
     lagWeights: number[];
-    confidenceThreshold: number;
+    baselineMean: number;
   };
 };
 
@@ -347,6 +359,17 @@ export default function AnalysisPage() {
             <div className="text-center py-8 text-gray-500">データがありません</div>
           ) : (
             <div className="space-y-6">
+              <div className="text-xs text-gray-500 space-y-1">
+                <div>
+                  基準平均（全タグ加重平均）: {tagCorrelation.metadata.baselineMean.toFixed(2)}
+                </div>
+                <div>
+                  事前設定: 平均 {tagCorrelation.metadata.priorMean.toFixed(2)} ／ 仮想サンプル数 {tagCorrelation.metadata.priorWeight} ／ 分散 {tagCorrelation.metadata.priorVariance.toFixed(2)}
+                </div>
+                <div>
+                  ラグ重み: 翌日 {tagCorrelation.metadata.lagWeights[0]}, 翌々日 {tagCorrelation.metadata.lagWeights[1]}, 3日後 {tagCorrelation.metadata.lagWeights[2]}
+                </div>
+              </div>
               {/* プラス寄与（コンディション向上に寄与） */}
               {tagCorrelation.positive.length > 0 && (() => {
                 // プラス寄与の最大値を計算
@@ -359,6 +382,7 @@ export default function AnalysisPage() {
                     <div className="space-y-3">
                       {tagCorrelation.positive.map((item) => {
                         const barWidth = maxContribution > 0 ? (Math.abs(item.contribution) / maxContribution) * 100 : 0;
+                        const probabilityPercent = Math.round(item.probabilitySameSign * 100);
                         const confidencePercent = Math.round(item.confidence * 100);
                         return (
                           <div
@@ -372,6 +396,9 @@ export default function AnalysisPage() {
                                 </span>
                                 <span className="text-xs text-gray-600 truncate">
                                   {item.occurrenceCount}回
+                                </span>
+                                <span className="text-xs text-gray-500 truncate">
+                                  観測{item.observationCount}件
                                 </span>
                               </div>
                               <div className="text-sm font-medium text-green-600 flex-shrink-0">
@@ -389,8 +416,11 @@ export default function AnalysisPage() {
                                 />
                               </div>
                               <span className="text-xs text-gray-500 flex-shrink-0 w-10 text-right">
-                                {confidencePercent}%
+                                {probabilityPercent}%
                               </span>
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              95%信用区間: {item.credibleInterval.lower.toFixed(2)}〜{item.credibleInterval.upper.toFixed(2)} ／ 信頼係数: {confidencePercent}%
                             </div>
                           </div>
                         );
@@ -412,6 +442,7 @@ export default function AnalysisPage() {
                     <div className="space-y-3">
                       {tagCorrelation.negative.map((item) => {
                         const barWidth = maxContribution > 0 ? (Math.abs(item.contribution) / maxContribution) * 100 : 0;
+                        const probabilityPercent = Math.round(item.probabilitySameSign * 100);
                         const confidencePercent = Math.round(item.confidence * 100);
                         return (
                           <div
@@ -425,6 +456,9 @@ export default function AnalysisPage() {
                                 </span>
                                 <span className="text-xs text-gray-600 truncate">
                                   {item.occurrenceCount}回
+                                </span>
+                                <span className="text-xs text-gray-500 truncate">
+                                  観測{item.observationCount}件
                                 </span>
                               </div>
                               <div className="text-sm font-medium text-red-600 flex-shrink-0">
@@ -442,8 +476,11 @@ export default function AnalysisPage() {
                                 />
                               </div>
                               <span className="text-xs text-gray-500 flex-shrink-0 w-10 text-right">
-                                {confidencePercent}%
+                                {probabilityPercent}%
                               </span>
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              95%信用区間: {item.credibleInterval.lower.toFixed(2)}〜{item.credibleInterval.upper.toFixed(2)} ／ 信頼係数: {confidencePercent}%
                             </div>
                           </div>
                         );

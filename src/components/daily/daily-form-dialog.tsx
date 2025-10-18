@@ -14,12 +14,14 @@ interface DailyFormDialogProps {
     condition: number;
     sleepStart?: string | null;
     sleepEnd?: string | null;
+    sleepQuality?: number | null;
   }) => void;
   date: string; // YYYY-MM-DD
   initialMemo?: string; // 既存の日記内容（編集時）
   initialCondition?: number; // 既存のコンディション（編集時）
   initialSleepStart?: string | null; // 既存の就寝時刻（編集時）
   initialSleepEnd?: string | null; // 既存の起床時刻（編集時）
+  initialSleepQuality?: number | null; // 既存の睡眠の質（編集時）
 }
 
 const conditionOptions = [
@@ -28,6 +30,14 @@ const conditionOptions = [
   { value: 0, label: "±0", description: "普通", bgColor: "bg-gray-400" },
   { value: -1, label: "-1", description: "悪い", bgColor: "bg-orange-400" },
   { value: -2, label: "-2", description: "最悪", bgColor: "bg-red-600" },
+];
+
+const sleepQualityOptions = [
+  { value: 2, label: "とても良い" },
+  { value: 1, label: "良い" },
+  { value: 0, label: "普通" },
+  { value: -1, label: "悪い" },
+  { value: -2, label: "とても悪い" },
 ];
 
 export function DailyFormDialog({
@@ -39,11 +49,13 @@ export function DailyFormDialog({
   initialCondition = 0,
   initialSleepStart = null,
   initialSleepEnd = null,
+  initialSleepQuality = null,
 }: DailyFormDialogProps) {
   const [memo, setMemo] = useState(initialMemo);
   const [condition, setCondition] = useState(initialCondition);
   const [sleepStart, setSleepStart] = useState(initialSleepStart);
   const [sleepEnd, setSleepEnd] = useState(initialSleepEnd);
+  const [sleepQuality, setSleepQuality] = useState<number | null>(initialSleepQuality ?? null);
 
   // ダイアログが開いた時に既存データで初期化
   useEffect(() => {
@@ -52,8 +64,16 @@ export function DailyFormDialog({
       setCondition(initialCondition);
       setSleepStart(initialSleepStart);
       setSleepEnd(initialSleepEnd);
+      setSleepQuality(initialSleepQuality ?? null);
     }
-  }, [isOpen, initialMemo, initialCondition, initialSleepStart, initialSleepEnd]);
+  }, [
+    isOpen,
+    initialMemo,
+    initialCondition,
+    initialSleepStart,
+    initialSleepEnd,
+    initialSleepQuality,
+  ]);
 
   if (!isOpen || !date) return null;
 
@@ -63,12 +83,14 @@ export function DailyFormDialog({
       condition,
       sleepStart,
       sleepEnd,
+      sleepQuality,
     });
     // リセット
     setMemo("");
     setCondition(0);
     setSleepStart(null);
     setSleepEnd(null);
+    setSleepQuality(null);
     onClose();
   };
 
@@ -194,23 +216,56 @@ export function DailyFormDialog({
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs text-gray-600">起床時刻</label>
-                  <input
-                    type="time"
-                    value={formatTimeOnly(sleepEnd)}
-                    onChange={(e) => setSleepEnd(parseTimeToISO(e.target.value, date))}
-                    onClick={(e) => {
-                      try {
-                        (e.target as HTMLInputElement).showPicker?.();
-                      } catch {
-                        // showPicker()がサポートされていない場合は何もしない
-                      }
-                    }}
-                    className="w-full cursor-pointer rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                  />
-                </div>
-              </div>
+              <label className="text-xs text-gray-600">起床時刻</label>
+              <input
+                type="time"
+                value={formatTimeOnly(sleepEnd)}
+                onChange={(e) => setSleepEnd(parseTimeToISO(e.target.value, date))}
+                onClick={(e) => {
+                  try {
+                    (e.target as HTMLInputElement).showPicker?.();
+                  } catch {
+                    // showPicker()がサポートされていない場合は何もしない
+                  }
+                }}
+                className="w-full cursor-pointer rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs text-gray-600">睡眠の質（-2 〜 +2）</label>
+            <div className="flex flex-wrap gap-2">
+              {sleepQualityOptions.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setSleepQuality(option.value)}
+                  className={`rounded-md border px-3 py-2 text-sm transition-colors ${
+                    sleepQuality === option.value
+                      ? "border-blue-500 bg-blue-50 text-blue-700"
+                      : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                  }`}
+                  aria-label={`睡眠の質: ${option.value >= 0 ? `+${option.value}` : option.value}`}
+                >
+                  {option.value >= 0 ? `+${option.value}` : option.value} / {option.label}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setSleepQuality(null)}
+                className={`rounded-md border px-3 py-2 text-sm transition-colors ${
+                  sleepQuality === null
+                    ? "border-blue-500 bg-blue-50 text-blue-700"
+                    : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                }`}
+                aria-label="睡眠の質: 未入力"
+              >
+                未入力
+              </button>
+            </div>
+          </div>
+        </div>
 
             {/* 送信ボタン */}
             <div className="flex justify-end gap-2 pt-2">
