@@ -12,7 +12,7 @@ interface AnalysisSidebarContentProps {
 const NAV_ITEMS: Array<{ key: AnalysisView; label: string; description?: string }> = [
   { key: "dashboard", label: "Dashboard", description: "全体概要" },
   { key: "condition", label: "コンディション推移", description: "時系列の変化" },
-  { key: "tag", label: "タグ相関", description: "タグ別の寄与度" },
+  { key: "tag", label: "タグ影響ベイズ推定", description: "タグ別寄与度をベイズ推定で評価" },
 ];
 
 export function AnalysisSidebarContent({

@@ -41,7 +41,7 @@ type TagContribution = {
   };
 };
 
-// タグ相関APIレスポンスの型
+// タグ影響ベイズ推定APIレスポンスの型
 type TagCorrelationResponse = {
   positive: TagContribution[];
   negative: TagContribution[];
@@ -125,8 +125,8 @@ const VIEW_METADATA: Record<AnalysisView, { title: string; description: string }
     description: "コンディションの時系列変化と分布を可視化します。",
   },
   tag: {
-    title: "タグ相関",
-    description: "タグごとの寄与度と信頼度を確認します。",
+    title: "タグ影響ベイズ推定",
+    description: "タグごとの寄与度をベイズ推定で評価します。",
   },
 };
 
@@ -198,7 +198,7 @@ export default function AnalysisPage() {
     fetchData();
   }, [granularity, fromDate, toDate]);
 
-  // タグ相関データ取得
+  // タグ影響ベイズ推定データ取得
   useEffect(() => {
     const fetchTagCorrelation = async () => {
       setTagLoading(true);
@@ -220,7 +220,7 @@ export default function AnalysisPage() {
           setTagCorrelation(data);
         }
       } catch (error) {
-        console.error("タグ相関データ取得エラー:", error);
+        console.error("タグ影響ベイズ推定データ取得エラー:", error);
       } finally {
         setTagLoading(false);
       }
@@ -325,8 +325,8 @@ export default function AnalysisPage() {
             </div>
           </div>
 
-            {/* グラフ表示エリア */}
-            {loading ? (
+          {/* グラフ表示エリア */}
+          {loading ? (
             <div className="text-center py-8 text-gray-500">読み込み中...</div>
           ) : conditionData.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
@@ -359,35 +359,35 @@ export default function AnalysisPage() {
                                   {ratios[2] > 0 && (
                                     <div
                                       className="bg-green-500"
-                                      style={{ height: `${(ratios[2] * BAR_HEIGHT)}px` }}
+                                      style={{ height: `${ratios[2] * BAR_HEIGHT}px` }}
                                     />
                                   )}
                                   {/* +1の領域 */}
                                   {ratios[1] > 0 && (
                                     <div
                                       className="bg-green-400"
-                                      style={{ height: `${(ratios[1] * BAR_HEIGHT)}px` }}
+                                      style={{ height: `${ratios[1] * BAR_HEIGHT}px` }}
                                     />
                                   )}
                                   {/* 0の領域（中央） */}
                                   {ratios[0] > 0 && (
                                     <div
                                       className="bg-gray-400"
-                                      style={{ height: `${(ratios[0] * BAR_HEIGHT)}px` }}
+                                      style={{ height: `${ratios[0] * BAR_HEIGHT}px` }}
                                     />
                                   )}
                                   {/* -1の領域 */}
                                   {ratios[-1] > 0 && (
                                     <div
                                       className="bg-orange-400"
-                                      style={{ height: `${(ratios[-1] * BAR_HEIGHT)}px` }}
+                                      style={{ height: `${ratios[-1] * BAR_HEIGHT}px` }}
                                     />
                                   )}
                                   {/* -2の領域（最下部） */}
                                   {ratios[-2] > 0 && (
                                     <div
                                       className="bg-red-500"
-                                      style={{ height: `${(ratios[-2] * BAR_HEIGHT)}px` }}
+                                      style={{ height: `${ratios[-2] * BAR_HEIGHT}px` }}
                                     />
                                   )}
                                 </div>
@@ -443,16 +443,16 @@ export default function AnalysisPage() {
               </div>
             </div>
           )}
-          </CardContent>
+        </CardContent>
         </Card>
       )}
 
-      {/* タグ相関 */}
+      {/* タグ影響ベイズ推定 */}
       {showTagSection && (
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
             <CardTitle>
-              タグ相関（{displayGranularityLabel}の寄与度）
+              タグ影響ベイズ推定（{displayGranularityLabel}の寄与度）
             </CardTitle>
             {!tagLoading && tagCorrelation && (
               <div className="relative" ref={metadataRef}>
