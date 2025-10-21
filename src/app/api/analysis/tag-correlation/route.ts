@@ -272,9 +272,12 @@ export async function GET(request: Request) {
     const index = lagDays.indexOf(dayOffset);
     if (index !== -1) {
       const conditionRaw = row.lag_condition;
-      const conditionValue = typeof conditionRaw === "number" ? conditionRaw : Number(conditionRaw);
-      if (!Number.isNaN(conditionValue)) {
-        record[index] = conditionValue;
+      if (conditionRaw != null) {
+        const conditionValue =
+          typeof conditionRaw === "number" ? conditionRaw : Number(conditionRaw);
+        if (!Number.isNaN(conditionValue)) {
+          record[index] = conditionValue;
+        }
       }
     }
 
