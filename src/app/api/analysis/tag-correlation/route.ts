@@ -4,6 +4,26 @@ import { z } from "zod";
 
 import { db } from "@/lib/db/client";
 
+type Granularity = "1d" | "1w" | "1m";
+
+const BASE_LAG_DAYS = [1, 2, 3] as const;
+const BASE_LAG_WEIGHTS = [1.0, 0.67, 0.5] as const;
+
+const GRANULARITY_CONFIG: Record<Granularity, { lagDays: number[]; lagWeights: number[] }> = {
+  "1d": {
+    lagDays: Array.from(BASE_LAG_DAYS),
+    lagWeights: Array.from(BASE_LAG_WEIGHTS),
+  },
+  "1w": {
+    lagDays: BASE_LAG_DAYS.map((day) => day * 7),
+    lagWeights: Array.from(BASE_LAG_WEIGHTS),
+  },
+  "1m": {
+    lagDays: BASE_LAG_DAYS.map((day) => day * 30),
+    lagWeights: Array.from(BASE_LAG_WEIGHTS),
+  },
+};
+
 const querySchema = z.object({
   from: z
     .string()
@@ -13,7 +33,7 @@ const querySchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .optional(),
-  granularity: z.enum(["1d", "1w", "1m"]).optional(),
+  granularity: z.enum(["1d", "1w", "1m"]).default("1d"),
 });
 
 function formatDate(date: Date) {
@@ -31,12 +51,11 @@ function toTimestampRange(date: string, isEnd: boolean): Date {
 }
 
 // 統計計算用の定数
-const LAG_WEIGHTS = [1.0, 0.67, 0.5]; // 翌日, 翌々日, 3日後
 const PRIOR_WEIGHT = 5; // 事前仮定の仮想サンプル数
 const PRIOR_MEAN = 0; // ベースラインとの差分に対する事前平均
 const PRIOR_VARIANCE = 1; // 事前分散（条件値のレンジに合わせた緩やかな幅）
 
-type LagRecord = { day1: number | null; day2: number | null; day3: number | null };
+type LagRecord = Array<number | null>;
 
 type ObservationStats = {
   trackCount: number;
@@ -50,7 +69,7 @@ type ObservationStats = {
 };
 
 // ラグごとの値を重み付きで集計し、平均や有効サンプル数を算出
-function extractObservationStats(records: LagRecord[]): ObservationStats {
+function extractObservationStats(records: LagRecord[], lagWeights: number[]): ObservationStats {
   const weightedValues: Array<{ value: number; weight: number }> = [];
 
   let observationCount = 0;
@@ -58,14 +77,19 @@ function extractObservationStats(records: LagRecord[]): ObservationStats {
   let weightedSum = 0;
   let sumWeightsSquared = 0;
 
-  records.forEach((rec) => {
-    const values = [rec.day1, rec.day2, rec.day3] as const;
-
+  records.forEach((values) => {
     values.forEach((value, index) => {
+      if (index >= lagWeights.length) {
+        return;
+      }
       if (value === null || Number.isNaN(value)) {
         return;
       }
-      const weight = LAG_WEIGHTS[index];
+      const weight = lagWeights[index];
+      if (weight <= 0) {
+        return;
+      }
+
       observationCount += 1;
       totalWeight += weight;
       weightedSum += value * weight;
@@ -89,6 +113,7 @@ function extractObservationStats(records: LagRecord[]): ObservationStats {
 
   const rawMean = weightedSum / totalWeight;
   let varianceNumerator = 0;
+
   weightedValues.forEach(({ value, weight }) => {
     const diff = value - rawMean;
     varianceNumerator += weight * diff * diff;
@@ -149,6 +174,26 @@ export async function GET(request: Request) {
     );
   }
 
+  const granularity = parsed.data.granularity;
+  const config = GRANULARITY_CONFIG[granularity];
+  const { lagDays, lagWeights } = config;
+
+  if (lagDays.length === 0 || lagWeights.length === 0) {
+    return NextResponse.json({
+      positive: [],
+      negative: [],
+      metadata: {
+        priorWeight: PRIOR_WEIGHT,
+        priorMean: PRIOR_MEAN,
+        priorVariance: PRIOR_VARIANCE,
+        lagWeights: [],
+        lagDays: [],
+        baselineMean: 0,
+        granularity,
+      },
+    });
+  }
+
   const today = new Date();
   const defaultTo = formatDate(today);
   const defaultFrom = formatDate(new Date(today.getTime() - 29 * 24 * 60 * 60 * 1000));
@@ -166,47 +211,78 @@ export async function GET(request: Request) {
   const fromTimestamp = toTimestampRange(from, false).toISOString();
   const toTimestamp = toTimestampRange(to, true).toISOString();
 
-  // SQLは単純なデータ取得のみ: trackが記録された日付、タグID、翌日以降3日間のdaily condition
+  const lagDaysArrayLiteral = lagDays.join(", ");
   const result = await db.execute(sql`
     WITH track_tags AS (
       SELECT
+        id AS track_id,
         UNNEST(tag_ids) AS tag_id,
         DATE(created_at AT TIME ZONE 'UTC') AS track_date
       FROM track
       WHERE created_at BETWEEN ${fromTimestamp} AND ${toTimestamp}
         AND array_length(tag_ids, 1) > 0
+    ),
+    lag_series AS (
+      SELECT UNNEST(${sql.raw(`ARRAY[${lagDaysArrayLiteral}]::int[]`)}) AS day_offset
     )
     SELECT
       tt.tag_id,
+      tt.track_id,
       tt.track_date,
-      d1.condition AS day1_condition,
-      d2.condition AS day2_condition,
-      d3.condition AS day3_condition
+      lag_series.day_offset,
+      d.condition AS lag_condition
     FROM track_tags tt
-    LEFT JOIN daily d1 ON d1.date = tt.track_date + INTERVAL '1 day'
-    LEFT JOIN daily d2 ON d2.date = tt.track_date + INTERVAL '2 days'
-    LEFT JOIN daily d3 ON d3.date = tt.track_date + INTERVAL '3 days'
+    CROSS JOIN lag_series
+    LEFT JOIN daily d ON d.date = tt.track_date + lag_series.day_offset
   `);
 
-  // タグごとにグループ化
-  const groupedByTag = new Map<
-    string,
-    Array<{ day1: number | null; day2: number | null; day3: number | null }>
-  >();
+  // タグごとにグループ化（track_id + 日付単位で一意に扱う）
+  const groupedByTag = new Map<string, Map<string, LagRecord>>();
 
-  for (const row of result) {
-    const tagId = row.tag_id as string;
-    if (!groupedByTag.has(tagId)) {
-      groupedByTag.set(tagId, []);
+  for (const row of result as Array<Record<string, unknown>>) {
+    const tagId = row.tag_id as string | undefined;
+    if (!tagId) {
+      continue;
     }
-    groupedByTag.get(tagId)!.push({
-      day1: row.day1_condition !== null ? Number(row.day1_condition) : null,
-      day2: row.day2_condition !== null ? Number(row.day2_condition) : null,
-      day3: row.day3_condition !== null ? Number(row.day3_condition) : null,
-    });
+
+    const trackId = row.track_id as string | undefined;
+    if (!trackId) {
+      continue;
+    }
+
+    const trackDateValue = row.track_date;
+    const trackDateKey = trackDateValue instanceof Date
+      ? trackDateValue.toISOString().slice(0, 10)
+      : String(trackDateValue);
+
+    const dayOffsetRaw = row.day_offset;
+    const dayOffset = typeof dayOffsetRaw === "number" ? dayOffsetRaw : Number(dayOffsetRaw);
+    if (!Number.isFinite(dayOffset)) {
+      continue;
+    }
+
+    const recordMap = groupedByTag.get(tagId) ?? new Map<string, LagRecord>();
+    if (!groupedByTag.has(tagId)) {
+      groupedByTag.set(tagId, recordMap);
+    }
+
+    const recordKey = `${trackId}:${trackDateKey}`;
+    const record = recordMap.get(recordKey) ?? Array(lagDays.length).fill(null);
+
+    const index = lagDays.indexOf(dayOffset);
+    if (index !== -1) {
+      const conditionRaw = row.lag_condition;
+      const conditionValue = typeof conditionRaw === "number" ? conditionRaw : Number(conditionRaw);
+      if (!Number.isNaN(conditionValue)) {
+        record[index] = conditionValue;
+      }
+    }
+
+    if (!recordMap.has(recordKey)) {
+      recordMap.set(recordKey, record);
+    }
   }
 
-  // タグ情報を取得
   const tagIds = Array.from(groupedByTag.keys());
   if (tagIds.length === 0) {
     return NextResponse.json({
@@ -216,8 +292,10 @@ export async function GET(request: Request) {
         priorWeight: PRIOR_WEIGHT,
         priorMean: PRIOR_MEAN,
         priorVariance: PRIOR_VARIANCE,
-        lagWeights: LAG_WEIGHTS,
+        lagWeights,
+        lagDays,
         baselineMean: 0,
+        granularity,
       },
     });
   }
@@ -247,9 +325,9 @@ export async function GET(request: Request) {
   let globalWeightedSum = 0;
   let globalTotalWeight = 0;
 
-  // まずタグごとの観測統計と全体平均を算出
-  for (const [tagId, records] of Array.from(groupedByTag.entries())) {
-    const stats = extractObservationStats(records);
+  for (const [tagId, recordMap] of Array.from(groupedByTag.entries())) {
+    const records = Array.from(recordMap.values());
+    const stats = extractObservationStats(records, lagWeights);
     statsByTag.set(tagId, {
       ...stats,
       rawContribution: 0,
@@ -264,10 +342,8 @@ export async function GET(request: Request) {
 
   const baselineMean = globalTotalWeight > 0 ? globalWeightedSum / globalTotalWeight : 0;
 
-  // 各タグについてベイズ推定に基づく寄与度を計算
   for (const [tagId, stats] of Array.from(statsByTag.entries())) {
-    const rawContribution =
-      stats.rawMean !== null ? stats.rawMean - baselineMean : 0;
+    const rawContribution = stats.rawMean !== null ? stats.rawMean - baselineMean : 0;
     const effectiveCount = stats.effectiveCount;
     const posteriorWeight = effectiveCount + PRIOR_WEIGHT;
 
@@ -288,12 +364,12 @@ export async function GET(request: Request) {
       posteriorWeight > 0 ? posteriorVarianceNumerator / posteriorWeight : PRIOR_VARIANCE;
 
     const posteriorStd =
-      posteriorWeight > 0 ? Math.sqrt(posteriorVariance / posteriorWeight) : Math.sqrt(PRIOR_VARIANCE);
+      posteriorWeight > 0
+        ? Math.sqrt(posteriorVariance / posteriorWeight)
+        : Math.sqrt(PRIOR_VARIANCE);
 
     const zScore = posteriorStd > 0 ? posteriorMean / posteriorStd : Number.POSITIVE_INFINITY;
-    const probability = Number.isFinite(zScore)
-      ? normalCdf(Math.abs(zScore))
-      : 1;
+    const probability = Number.isFinite(zScore) ? normalCdf(Math.abs(zScore)) : 1;
     const confidence = Math.max(0, Math.min(1, (probability - 0.5) * 2));
 
     const ciHalfWidth = posteriorStd * 1.96;
@@ -328,7 +404,6 @@ export async function GET(request: Request) {
     credibleInterval: stats.credibleInterval,
   }));
 
-  // プラス寄与とマイナス寄与に分類し、|寄与度| でソート
   const positive = results
     .filter((r) => r.contribution > 0)
     .sort((a, b) => Math.abs(b.contribution) - Math.abs(a.contribution));
@@ -344,8 +419,10 @@ export async function GET(request: Request) {
       priorWeight: PRIOR_WEIGHT,
       priorMean: PRIOR_MEAN,
       priorVariance: PRIOR_VARIANCE,
-      lagWeights: LAG_WEIGHTS,
+      lagWeights,
+      lagDays,
       baselineMean,
+      granularity,
     },
   });
 }

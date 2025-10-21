@@ -48,6 +48,8 @@ type TagCorrelationResponse = {
     priorMean: number;
     priorVariance: number;
     lagWeights: number[];
+    lagDays: number[];
+    granularity: Granularity;
     baselineMean: number;
   };
 };
@@ -77,6 +79,29 @@ function granularityToMs(gran: Granularity): number {
     default:
       return 0;
   }
+}
+
+function formatGranularityLabel(gran: Granularity): string {
+  switch (gran) {
+    case "1d":
+      return "日単位";
+    case "1w":
+      return "週単位";
+    case "1m":
+      return "月単位";
+    default:
+      return gran;
+  }
+}
+
+function formatLagDescription(days: number): string {
+  if (days === 1) {
+    return "翌日";
+  }
+  if (days === 2) {
+    return "翌々日";
+  }
+  return `${days}日後`;
 }
 
 // デフォルト期間を計算（16区間分）
@@ -167,6 +192,9 @@ export default function AnalysisPage() {
     // 期間表示（週単位、月単位の粒度）
     return `${start.getMonth() + 1}/${start.getDate()}`;
   };
+
+  const displayGranularity = tagCorrelation?.metadata.granularity ?? granularity;
+  const displayGranularityLabel = formatGranularityLabel(displayGranularity);
 
   return (
     <div className="mx-auto max-w-5xl space-y-4 sm:space-y-6">
@@ -350,7 +378,9 @@ export default function AnalysisPage() {
       {/* タグとコンディションの相関 */}
       <Card>
         <CardHeader>
-          <CardTitle>タグとコンディションの相関（翌日以降への影響）</CardTitle>
+          <CardTitle>
+            タグとコンディションの相関（{displayGranularityLabel}の寄与度）
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {tagLoading ? (
@@ -366,8 +396,20 @@ export default function AnalysisPage() {
                 <div>
                   事前設定: 平均 {tagCorrelation.metadata.priorMean.toFixed(2)} ／ 仮想サンプル数 {tagCorrelation.metadata.priorWeight} ／ 分散 {tagCorrelation.metadata.priorVariance.toFixed(2)}
                 </div>
-                <div>
-                  ラグ重み: 翌日 {tagCorrelation.metadata.lagWeights[0]}, 翌々日 {tagCorrelation.metadata.lagWeights[1]}, 3日後 {tagCorrelation.metadata.lagWeights[2]}
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <span>ラグ重み:</span>
+                  {tagCorrelation.metadata.lagDays.map((day, index) => {
+                    const weight = tagCorrelation.metadata.lagWeights[index];
+                    const weightLabel =
+                      typeof weight === "number" && Number.isFinite(weight)
+                        ? Number(weight.toFixed(2)).toString()
+                        : "-";
+                    return (
+                      <span key={`${day}-${index}`} className="text-gray-600">
+                        {formatLagDescription(day)} {weightLabel}
+                      </span>
+                    );
+                  })}
                 </div>
               </div>
               {/* プラス寄与（コンディション向上に寄与） */}

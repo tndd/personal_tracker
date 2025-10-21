@@ -107,7 +107,9 @@ test.describe("analysis API", () => {
     const body = await response.json();
 
     expect(body.metadata).toBeDefined();
-    expect(body.metadata.baselineMean).toBeCloseTo(0.39, 2);
+    expect(body.metadata.baselineMean).toBeCloseTo(0.35, 2);
+    expect(body.metadata.granularity).toBe("1d");
+    expect(body.metadata.lagDays).toEqual([1, 2, 3]);
 
     expect(Array.isArray(body.positive)).toBe(true);
     expect(Array.isArray(body.negative)).toBe(true);
@@ -128,12 +130,90 @@ test.describe("analysis API", () => {
     expect(negativeTag).toBeDefined();
     expect(negativeTag.contribution).toBeLessThan(0);
     expect(negativeTag.rawContribution).toBeLessThan(0);
-    expect(negativeTag.observationCount).toBe(2);
+    expect(negativeTag.observationCount).toBe(3);
     expect(negativeTag.probabilitySameSign).toBeGreaterThan(0.5);
     expect(negativeTag.confidence).toBeGreaterThan(0);
 
     expect(positiveTag.baselineMean).toBeCloseTo(body.metadata.baselineMean, 6);
     expect(negativeTag.baselineMean).toBeCloseTo(body.metadata.baselineMean, 6);
+  });
+
+  test("tag-correlation が週次粒度でラグを切り替える", async ({ request }) => {
+    const category = await createCategory(request, { name: "習慣", color: "#333333" });
+    const tagPositive = await createTag(request, { categoryId: category.id, name: "運動" });
+    const tagNegative = await createTag(request, { categoryId: category.id, name: "夜更かし" });
+
+    const positiveTrackResponse = await request.post("/api/tracks", {
+      data: { condition: 1, tagIds: [tagPositive.id] },
+    });
+    expect(positiveTrackResponse.status()).toBe(201);
+    const positiveTrack = await positiveTrackResponse.json();
+
+    const negativeTrackResponse = await request.post("/api/tracks", {
+      data: { condition: -1, tagIds: [tagNegative.id] },
+    });
+    expect(negativeTrackResponse.status()).toBe(201);
+    const negativeTrack = await negativeTrackResponse.json();
+
+    const positiveBase = new Date(Date.UTC(2025, 0, 1, 9, 0, 0));
+    const negativeBase = new Date(Date.UTC(2025, 1, 1, 9, 0, 0));
+
+    await sql`
+      UPDATE "track"
+      SET created_at = ${positiveBase.toISOString()}, updated_at = ${positiveBase.toISOString()}
+      WHERE id = ${positiveTrack.id}
+    `;
+
+    await sql`
+      UPDATE "track"
+      SET created_at = ${negativeBase.toISOString()}, updated_at = ${negativeBase.toISOString()}
+      WHERE id = ${negativeTrack.id}
+    `;
+
+    const weeklyDaily = [
+      { date: "2025-01-08", condition: 2 },
+      { date: "2025-01-15", condition: 1 },
+      { date: "2025-01-22", condition: 2 },
+      { date: "2025-02-08", condition: -1 },
+      { date: "2025-02-15", condition: -2 },
+      { date: "2025-02-22", condition: -2 },
+    ];
+
+    for (const { date, condition } of weeklyDaily) {
+      const putResponse = await request.put(`/api/daily/${date}`, { data: { condition } });
+      expect(putResponse.status()).toBe(200);
+    }
+
+    const response = await request.get(
+      `/api/analysis/tag-correlation?granularity=1w&from=2024-12-25&to=2025-02-25`,
+    );
+    expect(response.status()).toBe(200);
+    const body = await response.json();
+
+    expect(body.metadata.granularity).toBe("1w");
+    expect(body.metadata.lagDays).toEqual([7, 14, 21]);
+    expect(body.metadata.lagWeights).toHaveLength(3);
+    expect(body.metadata.lagWeights[0]).toBeCloseTo(1, 2);
+    expect(body.metadata.lagWeights[1]).toBeCloseTo(0.67, 2);
+    expect(body.metadata.lagWeights[2]).toBeCloseTo(0.5, 2);
+
+    const positive = (body.positive as Array<any>).find(
+      (item) => item.tagId === tagPositive.id,
+    );
+    const negative = (body.negative as Array<any>).find(
+      (item) => item.tagId === tagNegative.id,
+    );
+
+    expect(positive).toBeDefined();
+    expect(negative).toBeDefined();
+
+    expect(positive.occurrenceCount).toBe(1);
+    expect(positive.observationCount).toBe(3);
+    expect(positive.contribution).toBeGreaterThan(0);
+
+    expect(negative.occurrenceCount).toBe(1);
+    expect(negative.observationCount).toBe(3);
+    expect(negative.contribution).toBeLessThan(0);
   });
 
   test("condition-hourly がデフォルト粒度（3h）で集計を返す", async ({ request }) => {
