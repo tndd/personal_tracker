@@ -189,12 +189,15 @@ export default function AnalysisPage() {
     const fetchData = async () => {
       setLoading(true);
       try {
+        const endpoint = granularity === "1d"
+          ? "/api/analysis/condition-track"
+          : "/api/analysis/condition-daily";
         const params = new URLSearchParams({
           granularity,
           from: fromDate,
-          to: toDate
+          to: toDate,
         });
-        const response = await fetch(`/api/analysis/condition-hourly?${params}`);
+        const response = await fetch(`${endpoint}?${params}`);
         if (response.ok) {
           const data = await response.json();
           setConditionData(data.items);

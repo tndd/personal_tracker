@@ -10,6 +10,9 @@ import {
   getCurrentJSTDateString,
 } from "@/lib/timezone";
 
+// このAPIは track テーブルを対象にした粒度別集計を返す。
+// 1日の粒度で利用し、週次・月次は condition-daily API 側で扱う。
+
 // 粒度のパース
 function parseGranularity(gran: string): { value: number; unit: "h" | "d" | "w" } {
   const match = gran.match(/^(\d+)([hdw])$/);

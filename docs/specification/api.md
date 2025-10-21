@@ -342,6 +342,70 @@
 - エラー:
   - `400`: パラメータ不正
 
+### GET `/api/analysis/condition-track`
+- 説明: `track` テーブルの `created_at` を起点に、指定粒度（時間/日）でコンディション比率と睡眠情報を集計する
+- クエリ:
+  - `granularity` (optional, `1-24h` や `1-30d`。既定は `3h`)
+  - `from` / `to` (optional, YYYY-MM-DD。未指定時は粒度16区間分を直近で補間)
+- レスポンス 200:
+  ```json
+  {
+    "items": [
+      {
+        "slotIndex": 0,
+        "startTime": "2025-02-01T00:00:00.000Z",
+        "endTime": "2025-02-01T23:59:59.000Z",
+        "min": -1,
+        "max": 2,
+        "count": 5,
+        "counts": { "-1": 1, "0": 2, "2": 2 },
+        "ratios": { "-1": 0.2, "0": 0.4, "2": 0.4 },
+        "sleepHours": 6.5,
+        "sleepStart": "2025-01-31T14:30:00.000Z",
+        "sleepEnd": "2025-02-01T00:30:00.000Z"
+      }
+    ],
+    "granularity": "1d"
+  }
+  ```
+- 備考:
+  - 粒度は時間（`h`）もしくは日（`d`）単位のみサポート。週次・月次は `/api/analysis/condition-daily` を利用する
+  - スロット内の睡眠統計は `daily` テーブルを同一期間で参照し平均値を返す
+- エラー:
+  - `400`: パラメータ不正
+
+### GET `/api/analysis/condition-daily`
+- 説明: `daily` テーブルの記録を週次・月次のスロットへ集約し、コンディション比率と睡眠情報を返す
+- クエリ:
+  - `granularity` (optional, `"1w" | "1m"`。既定は `"1w"`)
+  - `from` / `to` (optional, YYYY-MM-DD。未指定時は粒度16区間分を直近で補間)
+- レスポンス 200:
+  ```json
+  {
+    "items": [
+      {
+        "slotIndex": 0,
+        "startTime": "2025-02-01T00:00:00.000Z",
+        "endTime": "2025-03-03T00:00:00.000Z",
+        "min": -2,
+        "max": 2,
+        "count": 12,
+        "counts": { "-2": 2, "0": 5, "1": 3, "2": 2 },
+        "ratios": { "-2": 0.17, "0": 0.42, "1": 0.25, "2": 0.17 },
+        "sleepHours": 6.8,
+        "sleepStart": "2025-02-01T14:30:00.000Z",
+        "sleepEnd": "2025-02-02T00:15:00.000Z"
+      }
+    ],
+    "granularity": "1m"
+  }
+  ```
+- 備考:
+  - 週次は7日、月次は30日を1スロットとして計算する（JST基準で区切る）
+  - スロット内の睡眠統計は `daily.sleep_start/sleep_end` が存在する行のみ平均値を算出
+- エラー:
+  - `400`: パラメータ不正
+
 ### GET `/api/analysis/tag-correlation`
 - 説明: トラックに紐付いたタグが指定粒度で先行日数分の `daily.condition` に与える影響度を、ベイズ推定で算出し返却する
 - クエリ:

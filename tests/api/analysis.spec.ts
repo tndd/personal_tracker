@@ -4,7 +4,8 @@
  * - 検証観点:
  *   - condition-trend が日別のコンディション配列を返すこと
  *   - tag-correlation が翌日以降の影響度と信用区間を返すこと
- *   - condition-hourly が任意の粒度で集計を行い、欠損スロットも補完すること
+ *   - condition-track がトラックベースの粒度別集計を返すこと
+ *   - condition-daily が週次・月次のコンディション比率を算出すること
  */
 
 import { expect, test, type APIRequestContext } from "@playwright/test";
@@ -107,7 +108,7 @@ test.describe("analysis API", () => {
     const body = await response.json();
 
     expect(body.metadata).toBeDefined();
-    expect(body.metadata.baselineMean).toBeCloseTo(0.35, 2);
+    expect(body.metadata.baselineMean).toBeCloseTo(0.39, 2);
     expect(body.metadata.granularity).toBe("1d");
     expect(body.metadata.lagDays).toEqual([1, 2, 3]);
 
@@ -130,7 +131,7 @@ test.describe("analysis API", () => {
     expect(negativeTag).toBeDefined();
     expect(negativeTag.contribution).toBeLessThan(0);
     expect(negativeTag.rawContribution).toBeLessThan(0);
-    expect(negativeTag.observationCount).toBe(3);
+    expect(negativeTag.observationCount).toBe(2);
     expect(negativeTag.probabilitySameSign).toBeGreaterThan(0.5);
     expect(negativeTag.confidence).toBeGreaterThan(0);
 
@@ -216,7 +217,7 @@ test.describe("analysis API", () => {
     expect(negative.contribution).toBeLessThan(0);
   });
 
-  test("condition-hourly がデフォルト粒度（3h）で集計を返す", async ({ request }) => {
+  test("condition-track がデフォルト粒度（3h）で集計を返す", async ({ request }) => {
     // 2つのトラックを作成（3時間以上離れた時刻）
     const track1 = await request.post("/api/tracks", {
       data: { condition: -1, memo: "朝" },
@@ -237,7 +238,7 @@ test.describe("analysis API", () => {
     const to = today.toISOString().slice(0, 10);
 
     const response = await request.get(
-      `/api/analysis/condition-hourly?granularity=3h&from=${from}&to=${to}`,
+      `/api/analysis/condition-track?granularity=3h&from=${from}&to=${to}`,
     );
     expect(response.status()).toBe(200);
     const body = await response.json();
@@ -259,7 +260,7 @@ test.describe("analysis API", () => {
     }
   });
 
-  test("condition-hourly が1日単位（1d）で集計を返す", async ({ request }) => {
+  test("condition-track が1日単位（1d）で集計を返す", async ({ request }) => {
     const track1 = await request.post("/api/tracks", {
       data: { condition: -2, memo: "track1" },
     });
@@ -277,7 +278,7 @@ test.describe("analysis API", () => {
     const to = today.toISOString().slice(0, 10);
 
     const response = await request.get(
-      `/api/analysis/condition-hourly?granularity=1d&from=${from}&to=${to}`,
+      `/api/analysis/condition-track?granularity=1d&from=${from}&to=${to}`,
     );
     expect(response.status()).toBe(200);
     const body = await response.json();
@@ -290,21 +291,29 @@ test.describe("analysis API", () => {
     expect(body.items.length).toBeGreaterThanOrEqual(3);
   });
 
-  test("condition-hourly が欠損スロットを補完する", async ({ request }) => {
-    // 1つだけトラックを作成
-    const track = await request.post("/api/tracks", {
+  test("condition-track が欠損スロットを補完する", async ({ request }) => {
+    // 1つだけトラックを作成し、直近スロットに収まるよう時刻を補正する
+    const trackResponse = await request.post("/api/tracks", {
       data: { condition: 0, memo: "single track" },
     });
-    expect(track.status()).toBe(201);
+    expect(trackResponse.status()).toBe(201);
+    const trackBody = await trackResponse.json();
 
-    const today = new Date();
-    const from = new Date(today.getTime() - 1 * 24 * 60 * 60 * 1000)
+    const now = new Date();
+    const adjusted = new Date(now.getTime() - 3 * 60 * 60 * 1000);
+    await sql`
+      UPDATE "track"
+      SET created_at = ${adjusted.toISOString()}, updated_at = ${adjusted.toISOString()}
+      WHERE id = ${trackBody.id}
+    `;
+
+    const from = new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000)
       .toISOString()
       .slice(0, 10);
-    const to = today.toISOString().slice(0, 10);
+    const to = now.toISOString().slice(0, 10);
 
     const response = await request.get(
-      `/api/analysis/condition-hourly?granularity=6h&from=${from}&to=${to}`,
+      `/api/analysis/condition-track?granularity=6h&from=${from}&to=${to}`,
     );
     expect(response.status()).toBe(200);
     const body = await response.json();
@@ -325,7 +334,79 @@ test.describe("analysis API", () => {
     expect(dataSlots.length).toBeGreaterThanOrEqual(1);
   });
 
-  test("condition-hourly が不正な粒度でエラーを返す", async ({ request }) => {
+  test("condition-daily が週単位でdaily比率を返す", async ({ request }) => {
+    const weeklyDaily = [
+      { date: "2025-01-01", condition: -1 },
+      { date: "2025-01-02", condition: 2 },
+      { date: "2025-01-04", condition: 2 },
+      { date: "2025-01-09", condition: -2 },
+      { date: "2025-01-10", condition: 0 },
+    ];
+
+    for (const payload of weeklyDaily) {
+      const putResponse = await request.put(`/api/daily/${payload.date}`, {
+        data: { condition: payload.condition },
+      });
+      expect(putResponse.status()).toBe(200);
+    }
+
+    const response = await request.get(
+      "/api/analysis/condition-daily?granularity=1w&from=2025-01-01&to=2025-01-21",
+    );
+    expect(response.status()).toBe(200);
+
+    const body = await response.json();
+    expect(Array.isArray(body.items)).toBe(true);
+    expect(body.granularity).toBe("1w");
+    expect(body.items.length).toBeGreaterThanOrEqual(2);
+
+    const firstSlot = body.items[0];
+    expect(firstSlot.count).toBe(3);
+    expect(firstSlot.ratios[2]).toBeCloseTo(2 / 3, 2);
+    expect(firstSlot.ratios[-1]).toBeCloseTo(1 / 3, 2);
+
+    const secondSlot = body.items[1];
+    expect(secondSlot.count).toBe(2);
+    expect(secondSlot.ratios[-2]).toBeCloseTo(0.5, 2);
+    expect(secondSlot.ratios[0]).toBeCloseTo(0.5, 2);
+  });
+
+  test("condition-daily が月単位でdaily比率を返す", async ({ request }) => {
+    const monthlyDaily = [
+      { date: "2025-02-01", condition: 2 },
+      { date: "2025-02-10", condition: 1 },
+      { date: "2025-02-20", condition: -2 },
+      { date: "2025-03-05", condition: -1 },
+    ];
+
+    for (const payload of monthlyDaily) {
+      const putResponse = await request.put(`/api/daily/${payload.date}`, {
+        data: { condition: payload.condition },
+      });
+      expect(putResponse.status()).toBe(200);
+    }
+
+    const response = await request.get(
+      "/api/analysis/condition-daily?granularity=1m&from=2025-02-01&to=2025-03-15",
+    );
+    expect(response.status()).toBe(200);
+
+    const body = await response.json();
+    expect(body.granularity).toBe("1m");
+    expect(body.items.length).toBeGreaterThanOrEqual(2);
+
+    const firstSlot = body.items[0];
+    expect(firstSlot.count).toBe(3);
+    expect(firstSlot.ratios[2]).toBeCloseTo(1 / 3, 2);
+    expect(firstSlot.ratios[1]).toBeCloseTo(1 / 3, 2);
+    expect(firstSlot.ratios[-2]).toBeCloseTo(1 / 3, 2);
+
+    const secondSlot = body.items[1];
+    expect(secondSlot.count).toBe(1);
+    expect(secondSlot.ratios[-1]).toBeCloseTo(1, 2);
+  });
+
+  test("condition-track が不正な粒度でエラーを返す", async ({ request }) => {
     const today = new Date();
     const from = new Date(today.getTime() - 1 * 24 * 60 * 60 * 1000)
       .toISOString()
@@ -334,19 +415,19 @@ test.describe("analysis API", () => {
 
     // 不正な粒度フォーマット
     const response1 = await request.get(
-      `/api/analysis/condition-hourly?granularity=invalid&from=${from}&to=${to}`,
+      `/api/analysis/condition-track?granularity=invalid&from=${from}&to=${to}`,
     );
     expect(response1.status()).toBe(400);
 
     // 範囲外の時間単位
     const response2 = await request.get(
-      `/api/analysis/condition-hourly?granularity=100h&from=${from}&to=${to}`,
+      `/api/analysis/condition-track?granularity=100h&from=${from}&to=${to}`,
     );
     expect(response2.status()).toBe(400);
 
     // 範囲外の週単位
     const response3 = await request.get(
-      `/api/analysis/condition-hourly?granularity=10w&from=${from}&to=${to}`,
+      `/api/analysis/condition-track?granularity=10w&from=${from}&to=${to}`,
     );
     expect(response3.status()).toBe(400);
   });
