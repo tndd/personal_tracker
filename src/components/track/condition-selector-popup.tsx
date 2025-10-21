@@ -1,18 +1,23 @@
 "use client";
 
 import { Card } from "@/components/ui/card";
+import {
+  CONDITION_COLORS,
+  CONDITION_METADATA,
+  CONDITION_VALUES_DESC,
+  type ConditionValue,
+} from "@/constants/condition-style";
 
-const conditionOptions = [
-  { value: 2, label: "+2", description: "最高", bgColor: "bg-sky-500" },
-  { value: 1, label: "+1", description: "良い", bgColor: "bg-green-400" },
-  { value: 0, label: "±0", description: "普通", bgColor: "bg-gray-400" },
-  { value: -1, label: "-1", description: "悪い", bgColor: "bg-orange-400" },
-  { value: -2, label: "-2", description: "最悪", bgColor: "bg-red-600" },
-];
+const conditionOptions = CONDITION_VALUES_DESC.map((value) => ({
+  value,
+  label: CONDITION_METADATA[value].label,
+  description: CONDITION_METADATA[value].description,
+  bgColor: CONDITION_COLORS[value].dot,
+}));
 
 interface ConditionSelectorPopupProps {
-  currentCondition: number;
-  onSelect: (condition: number) => void;
+  currentCondition: ConditionValue;
+  onSelect: (condition: ConditionValue) => void;
   onClose: () => void;
   position?: { bottom: number; right: number };
 }
@@ -23,7 +28,7 @@ export function ConditionSelectorPopup({
   onClose,
   position,
 }: ConditionSelectorPopupProps) {
-  const handleSelect = (value: number) => {
+  const handleSelect = (value: ConditionValue) => {
     onSelect(value);
     onClose();
   };

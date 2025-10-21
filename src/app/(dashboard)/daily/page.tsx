@@ -5,16 +5,25 @@ import { DailyCard } from "@/components/daily/daily-card";
 import { CalendarView } from "@/components/daily/calendar-view";
 import { DailyFormDialog } from "@/components/daily/daily-form-dialog";
 import { DailySidebarContent } from "@/components/daily/daily-sidebar-content";
+import { normalizeCondition, type ConditionValue } from "@/constants/condition-style";
 import { useSidebarContent } from "@/contexts/sidebar-content-context";
 import { ArrowUp, LayoutGrid, List, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 
 // データの型定義
-type DailyData = {
+type DailyApiItem = {
   date: string;
   memo: string | null;
   condition: number;
+  sleepStart: string | null;
+  sleepEnd: string | null;
+};
+
+type DailyData = {
+  date: string;
+  memo: string | null;
+  condition: ConditionValue;
   sleepStart: string | null;
   sleepEnd: string | null;
 };
@@ -27,7 +36,7 @@ export default function DailyPage() {
   const [viewMode, setViewMode] = useState<"list" | "calendar">("calendar");
   const [showFormDialog, setShowFormDialog] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>("");
-  const [selectedCondition, setSelectedCondition] = useState<number | null>(null);
+  const [selectedCondition, setSelectedCondition] = useState<ConditionValue | null>(null);
 
   // 今日の日付
   const today = format(new Date(), "yyyy-MM-dd");
@@ -55,7 +64,13 @@ export default function DailyPage() {
         }
 
         const data = await response.json();
-        setDailies(data.items || []);
+        const items: DailyApiItem[] = data.items || [];
+        setDailies(
+          items.map((item) => ({
+            ...item,
+            condition: normalizeCondition(item.condition),
+          }))
+        );
       } catch (error) {
         console.error("データ取得エラー:", error);
       } finally {
@@ -94,7 +109,7 @@ export default function DailyPage() {
 
   const handleSubmit = (data: {
     memo: string;
-    condition: number;
+    condition: ConditionValue;
     sleepStart?: string | null;
     sleepEnd?: string | null;
   }) => {

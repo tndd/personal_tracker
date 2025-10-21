@@ -3,20 +3,30 @@ import { format } from "date-fns";
 import { ja } from "date-fns/locale";
 import { Edit2, Moon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  CONDITION_COLORS,
+  CONDITION_METADATA,
+  CONDITION_VALUES_DESC,
+  type ConditionValue,
+} from "@/constants/condition-style";
 
 // コンディションの表示用（色ベース）
-const conditionConfig = {
-  2: { label: "+2", bgColor: "bg-sky-500", textColor: "text-sky-600" },
-  1: { label: "+1", bgColor: "bg-green-400", textColor: "text-green-400" },
-  0: { label: "±0", bgColor: "bg-gray-400", textColor: "text-gray-500" },
-  "-1": { label: "-1", bgColor: "bg-orange-400", textColor: "text-orange-500" },
-  "-2": { label: "-2", bgColor: "bg-red-600", textColor: "text-red-600" },
-} as const;
+const conditionConfig = CONDITION_VALUES_DESC.reduce(
+  (acc, value) => {
+    acc[value] = {
+      label: CONDITION_METADATA[value].label,
+      bgColor: CONDITION_COLORS[value].dot,
+      textColor: CONDITION_COLORS[value].text,
+    };
+    return acc;
+  },
+  {} as Record<ConditionValue, { label: string; bgColor: string; textColor: string }>
+);
 
 interface DailyCardProps {
   date: string; // YYYY-MM-DD
   memo: string | null;
-  condition: number;
+  condition: ConditionValue;
   sleepStart?: string | null;
   sleepEnd?: string | null;
   onEdit?: () => void;
@@ -30,7 +40,7 @@ export function DailyCard({
   sleepEnd,
   onEdit,
 }: DailyCardProps) {
-  const config = conditionConfig[condition as keyof typeof conditionConfig];
+  const config = conditionConfig[condition];
   const dateObj = new Date(date + "T00:00:00");
 
   // 睡眠時間を計算（時間単位）

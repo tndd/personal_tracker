@@ -7,6 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Send, Plus, X } from "lucide-react";
 import { TagSelectorPopup } from "./tag-selector-popup";
 import { ConditionSelectorPopup } from "./condition-selector-popup";
+import {
+  CONDITION_COLORS,
+  CONDITION_METADATA,
+  CONDITION_VALUES_DESC,
+  type ConditionValue,
+} from "@/constants/condition-style";
 
 interface Tag {
   id: string;
@@ -17,20 +23,23 @@ interface Tag {
 }
 
 interface TrackFormProps {
-  onSubmit?: (data: { memo: string; condition: number; tagIds: string[] }) => void;
+  onSubmit?: (data: { memo: string; condition: ConditionValue; tagIds: string[] }) => void;
 }
 
-const conditionConfig = {
-  2: { label: "+2", bgColor: "bg-sky-500" },
-  1: { label: "+1", bgColor: "bg-green-400" },
-  0: { label: "±0", bgColor: "bg-gray-400" },
-  "-1": { label: "-1", bgColor: "bg-orange-400" },
-  "-2": { label: "-2", bgColor: "bg-red-600" },
-} as const;
+const conditionConfig = CONDITION_VALUES_DESC.reduce(
+  (acc, value) => {
+    acc[value] = {
+      label: CONDITION_METADATA[value].label,
+      bgColor: CONDITION_COLORS[value].dot,
+    };
+    return acc;
+  },
+  {} as Record<ConditionValue, { label: string; bgColor: string }>
+);
 
 export function TrackForm({ onSubmit }: TrackFormProps) {
   const [memo, setMemo] = useState("");
-  const [condition, setCondition] = useState(0);
+  const [condition, setCondition] = useState<ConditionValue>(0);
   const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
   const [showTagPopup, setShowTagPopup] = useState(false);
   const [showConditionPopup, setShowConditionPopup] = useState(false);
@@ -38,7 +47,7 @@ export function TrackForm({ onSubmit }: TrackFormProps) {
   const tagButtonRef = useRef<HTMLButtonElement>(null);
   const conditionButtonRef = useRef<HTMLButtonElement>(null);
 
-  const conditionInfo = conditionConfig[condition as keyof typeof conditionConfig];
+  const conditionInfo = conditionConfig[condition];
 
   const handleSubmit = () => {
     if (!memo.trim()) return;

@@ -7,6 +7,12 @@ import { Button } from "@/components/ui/button";
 import { X, Plus } from "lucide-react";
 import { TagSelectorPopup } from "./tag-selector-popup";
 import { ConditionSelectorPopup } from "./condition-selector-popup";
+import {
+  CONDITION_COLORS,
+  CONDITION_METADATA,
+  CONDITION_VALUES_DESC,
+  type ConditionValue,
+} from "@/constants/condition-style";
 
 interface Tag {
   id: string;
@@ -19,22 +25,25 @@ interface Tag {
 interface TrackEditDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: { memo: string; condition: number; tagIds: string[] }) => void;
+  onSubmit: (data: { memo: string; condition: ConditionValue; tagIds: string[] }) => void;
   trackLabel: string;
   initialMemo: string;
-  initialCondition: number;
+  initialCondition: ConditionValue;
   initialTags: Tag[];
   errorMessage?: string | null;
   isSubmitting?: boolean;
 }
 
-const conditionConfig = {
-  2: { label: "+2", bgColor: "bg-sky-500" },
-  1: { label: "+1", bgColor: "bg-green-400" },
-  0: { label: "±0", bgColor: "bg-gray-400" },
-  "-1": { label: "-1", bgColor: "bg-orange-400" },
-  "-2": { label: "-2", bgColor: "bg-red-600" },
-} as const;
+const conditionConfig = CONDITION_VALUES_DESC.reduce(
+  (acc, value) => {
+    acc[value] = {
+      label: CONDITION_METADATA[value].label,
+      bgColor: CONDITION_COLORS[value].dot,
+    };
+    return acc;
+  },
+  {} as Record<ConditionValue, { label: string; bgColor: string }>
+);
 
 /**
  * docs:
@@ -56,7 +65,7 @@ export function TrackEditDialog({
   isSubmitting = false,
 }: TrackEditDialogProps) {
   const [memo, setMemo] = useState(initialMemo);
-  const [condition, setCondition] = useState(initialCondition);
+  const [condition, setCondition] = useState<ConditionValue>(initialCondition);
   const [selectedTags, setSelectedTags] = useState<Tag[]>(initialTags);
   const [showTagPopup, setShowTagPopup] = useState(false);
   const [showConditionPopup, setShowConditionPopup] = useState(false);
@@ -75,7 +84,7 @@ export function TrackEditDialog({
     return null;
   }
 
-  const currentCondition = conditionConfig[condition as keyof typeof conditionConfig];
+  const currentCondition = conditionConfig[condition];
 
   const handleSubmit = () => {
     onSubmit({

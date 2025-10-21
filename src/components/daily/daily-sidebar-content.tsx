@@ -1,23 +1,33 @@
 "use client";
 
+import {
+  CONDITION_COLORS,
+  CONDITION_METADATA,
+  CONDITION_VALUES_DESC,
+  type ConditionValue,
+} from "@/constants/condition-style";
+
 interface DailySidebarContentProps {
-  selectedCondition: number | null;
-  onConditionChange: (condition: number | null) => void;
+  selectedCondition: ConditionValue | null;
+  onConditionChange: (condition: ConditionValue | null) => void;
 }
 
-const conditionOptions = [
-  { value: 2, label: "とても良い", color: "bg-green-500", textColor: "text-green-700" },
-  { value: 1, label: "良い", color: "bg-green-400", textColor: "text-green-600" },
-  { value: 0, label: "普通", color: "bg-gray-400", textColor: "text-gray-700" },
-  { value: -1, label: "悪い", color: "bg-orange-400", textColor: "text-orange-600" },
-  { value: -2, label: "とても悪い", color: "bg-red-500", textColor: "text-red-700" },
-];
+const conditionOptions = CONDITION_VALUES_DESC.map((value) => {
+  const metadata = CONDITION_METADATA[value];
+  const colors = CONDITION_COLORS[value];
+  return {
+    value,
+    label: metadata.altLabel,
+    color: colors.dot,
+    textColor: colors.filterText,
+  };
+});
 
 export function DailySidebarContent({
   selectedCondition,
   onConditionChange,
 }: DailySidebarContentProps) {
-  const handleConditionClick = (value: number) => {
+  const handleConditionClick = (value: ConditionValue) => {
     // 同じコンディションをクリックしたら選択解除
     if (selectedCondition === value) {
       onConditionChange(null);
