@@ -211,7 +211,7 @@ export default function AnalysisPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           {/* 粒度と期間の選択 */}
-          <div className="space-y-3 p-3 bg-gray-50 rounded-md">
+          <div className="space-y-3 pb-3 border-b border-gray-200">
             {/* 粒度選択 */}
             <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
               <label className="text-sm font-medium text-gray-700">粒度:</label>
