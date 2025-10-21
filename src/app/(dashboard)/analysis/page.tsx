@@ -147,6 +147,8 @@ export default function AnalysisPage() {
   const [tagLoading, setTagLoading] = useState(true);
   const [showMetadata, setShowMetadata] = useState(false);
   const metadataRef = useRef<HTMLDivElement>(null);
+  const conditionRequestIdRef = useRef(0);
+  const tagRequestIdRef = useRef(0);
 
   // 前提条件のstate
   const [priorWeight, setPriorWeight] = useState(5);
@@ -186,8 +188,11 @@ export default function AnalysisPage() {
 
   // コンディションデータ取得
   useEffect(() => {
+    const controller = new AbortController();
+    const currentRequestId = ++conditionRequestIdRef.current;
+    setLoading(true);
+
     const fetchData = async () => {
-      setLoading(true);
       try {
         const endpoint = granularity === "1d"
           ? "/api/analysis/condition-track"
@@ -197,24 +202,42 @@ export default function AnalysisPage() {
           from: fromDate,
           to: toDate,
         });
-        const response = await fetch(`${endpoint}?${params}`);
-        if (response.ok) {
-          const data = await response.json();
+        const response = await fetch(`${endpoint}?${params}`, {
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          return;
+        }
+
+        const data = await response.json();
+        if (conditionRequestIdRef.current === currentRequestId) {
           setConditionData(data.items);
         }
       } catch (error) {
-        console.error("データ取得エラー:", error);
+        if ((error as { name?: string }).name !== "AbortError") {
+          console.error("データ取得エラー:", error);
+        }
       } finally {
-        setLoading(false);
+        if (conditionRequestIdRef.current === currentRequestId) {
+          setLoading(false);
+        }
       }
     };
-    fetchData();
+
+    void fetchData();
+
+    return () => {
+      controller.abort();
+    };
   }, [granularity, fromDate, toDate]);
 
   // タグ影響ベイズ推定データ取得
   useEffect(() => {
+    const controller = new AbortController();
+    const currentRequestId = ++tagRequestIdRef.current;
+    setTagLoading(true);
+
     const fetchTagCorrelation = async () => {
-      setTagLoading(true);
       try {
         const params = new URLSearchParams({
           granularity,
@@ -227,18 +250,33 @@ export default function AnalysisPage() {
           lagWeight1: lagWeight1.toString(),
           lagWeight2: lagWeight2.toString(),
         });
-        const response = await fetch(`/api/analysis/tag-correlation?${params}`);
-        if (response.ok) {
-          const data = await response.json();
+        const response = await fetch(`/api/analysis/tag-correlation?${params}`, {
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          return;
+        }
+
+        const data = await response.json();
+        if (tagRequestIdRef.current === currentRequestId) {
           setTagCorrelation(data);
         }
       } catch (error) {
-        console.error("タグ影響ベイズ推定データ取得エラー:", error);
+        if ((error as { name?: string }).name !== "AbortError") {
+          console.error("タグ影響ベイズ推定データ取得エラー:", error);
+        }
       } finally {
-        setTagLoading(false);
+        if (tagRequestIdRef.current === currentRequestId) {
+          setTagLoading(false);
+        }
       }
     };
-    fetchTagCorrelation();
+
+    void fetchTagCorrelation();
+
+    return () => {
+      controller.abort();
+    };
   }, [granularity, fromDate, toDate, priorWeight, priorMean, priorVariance, lagWeight0, lagWeight1, lagWeight2]);
 
   // ポップアップの外側クリックで閉じる
