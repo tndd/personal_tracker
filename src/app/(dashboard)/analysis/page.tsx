@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
@@ -119,6 +119,8 @@ export default function AnalysisPage() {
   const [tagCorrelation, setTagCorrelation] = useState<TagCorrelationResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [tagLoading, setTagLoading] = useState(true);
+  const [showMetadata, setShowMetadata] = useState(false);
+  const metadataRef = useRef<HTMLDivElement>(null);
 
   // デフォルト期間（粒度の16区間分）
   const defaultPeriod = calculateDefaultPeriod(granularity);
@@ -179,6 +181,23 @@ export default function AnalysisPage() {
     };
     fetchTagCorrelation();
   }, [granularity, fromDate, toDate]);
+
+  // ポップアップの外側クリックで閉じる
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (metadataRef.current && !metadataRef.current.contains(event.target as Node)) {
+        setShowMetadata(false);
+      }
+    };
+
+    if (showMetadata) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showMetadata]);
 
   // スロットのラベルを生成
   const getSlotLabel = (item: ConditionData) => {
@@ -376,10 +395,45 @@ export default function AnalysisPage() {
 
       {/* タグとコンディションの相関 */}
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
           <CardTitle>
             タグとコンディションの相関（{displayGranularityLabel}の寄与度）
           </CardTitle>
+          {!tagLoading && tagCorrelation && (
+            <div className="relative" ref={metadataRef}>
+              <button
+                onClick={() => setShowMetadata(!showMetadata)}
+                className="text-xs px-2 py-1 rounded-md border border-gray-300 hover:bg-gray-50 transition-colors"
+              >
+                前提条件
+              </button>
+              {showMetadata && (
+                <div className="absolute right-0 top-full mt-2 w-80 p-3 bg-white border border-gray-200 rounded-md shadow-lg z-10 text-xs text-gray-600 space-y-2">
+                  <div>
+                    基準平均（全タグ加重平均）: {tagCorrelation.metadata.baselineMean.toFixed(2)}
+                  </div>
+                  <div>
+                    事前設定: 平均 {tagCorrelation.metadata.priorMean.toFixed(2)} ／ 仮想サンプル数 {tagCorrelation.metadata.priorWeight} ／ 分散 {tagCorrelation.metadata.priorVariance.toFixed(2)}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span>ラグ重み:</span>
+                    {tagCorrelation.metadata.lagDays.map((day, index) => {
+                      const weight = tagCorrelation.metadata.lagWeights[index];
+                      const weightLabel =
+                        typeof weight === "number" && Number.isFinite(weight)
+                          ? Number(weight.toFixed(2)).toString()
+                          : "-";
+                      return (
+                        <span key={`${day}-${index}`} className="text-gray-600">
+                          {formatLagDescription(day)} {weightLabel}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           {tagLoading ? (
@@ -388,29 +442,6 @@ export default function AnalysisPage() {
             <div className="text-center py-8 text-gray-500">データがありません</div>
           ) : (
             <div className="space-y-6">
-              <div className="text-xs text-gray-500 space-y-1">
-                <div>
-                  基準平均（全タグ加重平均）: {tagCorrelation.metadata.baselineMean.toFixed(2)}
-                </div>
-                <div>
-                  事前設定: 平均 {tagCorrelation.metadata.priorMean.toFixed(2)} ／ 仮想サンプル数 {tagCorrelation.metadata.priorWeight} ／ 分散 {tagCorrelation.metadata.priorVariance.toFixed(2)}
-                </div>
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                  <span>ラグ重み:</span>
-                  {tagCorrelation.metadata.lagDays.map((day, index) => {
-                    const weight = tagCorrelation.metadata.lagWeights[index];
-                    const weightLabel =
-                      typeof weight === "number" && Number.isFinite(weight)
-                        ? Number(weight.toFixed(2)).toString()
-                        : "-";
-                    return (
-                      <span key={`${day}-${index}`} className="text-gray-600">
-                        {formatLagDescription(day)} {weightLabel}
-                      </span>
-                    );
-                  })}
-                </div>
-              </div>
               {/* プラス寄与（コンディション向上に寄与） */}
               {tagCorrelation.positive.length > 0 && (() => {
                 // プラス寄与の最大値を計算
