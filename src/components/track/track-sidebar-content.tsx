@@ -23,7 +23,7 @@ const conditionOptions = [
   { value: -1, label: "-1", shortLabel: "-1", color: "bg-orange-400", textColor: "text-orange-600", size: "w-[16px] h-[16px]" },
   { value: 0, label: "±0", shortLabel: "±0", color: "bg-gray-400", textColor: "text-gray-700", size: "w-3 h-3" },
   { value: 1, label: "+1", shortLabel: "+1", color: "bg-green-400", textColor: "text-green-600", size: "w-[16px] h-[16px]" },
-  { value: 2, label: "+2", shortLabel: "+2", color: "bg-green-600", textColor: "text-green-700", size: "w-[20px] h-[20px]" },
+  { value: 2, label: "+2", shortLabel: "+2", color: "bg-sky-500", textColor: "text-sky-700", size: "w-[20px] h-[20px]" },
 ];
 
 export function TrackSidebarContent({

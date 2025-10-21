@@ -29,7 +29,7 @@ interface TrackEditDialogProps {
 }
 
 const conditionConfig = {
-  2: { label: "+2", bgColor: "bg-green-600" },
+  2: { label: "+2", bgColor: "bg-sky-500" },
   1: { label: "+1", bgColor: "bg-green-400" },
   0: { label: "±0", bgColor: "bg-gray-400" },
   "-1": { label: "-1", bgColor: "bg-orange-400" },

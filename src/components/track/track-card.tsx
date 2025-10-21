@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 
 // コンディションの表示用（色ベース）
 const conditionConfig = {
-  2: { label: "+2", bgColor: "bg-green-600", textColor: "text-green-600" },
+  2: { label: "+2", bgColor: "bg-sky-500", textColor: "text-sky-600" },
   1: { label: "+1", bgColor: "bg-green-400", textColor: "text-green-400" },
   0: { label: "±0", bgColor: "bg-gray-400", textColor: "text-gray-500" },
   "-1": { label: "-1", bgColor: "bg-orange-400", textColor: "text-orange-500" },

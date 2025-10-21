@@ -23,7 +23,7 @@ interface DailyFormDialogProps {
 }
 
 const conditionOptions = [
-  { value: 2, label: "+2", description: "最高", bgColor: "bg-green-600" },
+  { value: 2, label: "+2", description: "最高", bgColor: "bg-sky-500" },
   { value: 1, label: "+1", description: "良い", bgColor: "bg-green-400" },
   { value: 0, label: "±0", description: "普通", bgColor: "bg-gray-400" },
   { value: -1, label: "-1", description: "悪い", bgColor: "bg-orange-400" },

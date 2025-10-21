@@ -411,7 +411,7 @@ export default function AnalysisPage() {
                                   {/* +2の領域（最上部） */}
                                   {ratios[2] > 0 && (
                                     <div
-                                      className="bg-green-500"
+                                      className="bg-sky-500"
                                       style={{ height: `${ratios[2] * BAR_HEIGHT}px` }}
                                     />
                                   )}
@@ -473,7 +473,7 @@ export default function AnalysisPage() {
               {/* 凡例 */}
               <div className="flex flex-wrap justify-center gap-3 sm:gap-4 text-xs">
                 <div className="flex items-center gap-1">
-                  <div className="h-3 w-3 rounded bg-green-500" />
+                  <div className="h-3 w-3 rounded bg-sky-500" />
                   <span>+2</span>
                 </div>
                 <div className="flex items-center gap-1">
