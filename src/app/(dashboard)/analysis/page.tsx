@@ -16,6 +16,7 @@ type ConditionData = {
   count: number;
   counts: Record<number, number>; // 各コンディション値の出現回数
   ratios: Record<number, number>; // 各コンディション値の比率
+  sleepHours: number | null; // 睡眠時間（時間単位）
 };
 
 // 粒度の型
@@ -124,6 +125,10 @@ const VIEW_METADATA: Record<AnalysisView, { title: string; description: string }
     title: "コンディション推移",
     description: "コンディションの時系列変化と分布を可視化します。",
   },
+  sleep: {
+    title: "睡眠分析",
+    description: "睡眠時間の推移と基準値との比較を可視化します。",
+  },
   tag: {
     title: "タグ影響ベイズ推定",
     description: "タグごとの寄与度をベイズ推定で評価します。",
@@ -148,6 +153,9 @@ export default function AnalysisPage() {
   const [lagWeight0, setLagWeight0] = useState(1.0);
   const [lagWeight1, setLagWeight1] = useState(0.67);
   const [lagWeight2, setLagWeight2] = useState(0.5);
+
+  // 睡眠基準値のstate
+  const [sleepBaseline, setSleepBaseline] = useState(7);
 
   // デフォルト期間（粒度の16区間分）
   const defaultPeriod = calculateDefaultPeriod(granularity);
@@ -263,6 +271,8 @@ export default function AnalysisPage() {
   const activeViewMeta = VIEW_METADATA[selectedView];
   const showConditionSection =
     selectedView === "dashboard" || selectedView === "condition";
+  const showSleepSection =
+    selectedView === "dashboard" || selectedView === "sleep";
   const showTagSection = selectedView === "dashboard" || selectedView === "tag";
 
   return (
@@ -444,6 +454,193 @@ export default function AnalysisPage() {
             </div>
           )}
         </CardContent>
+        </Card>
+      )}
+
+      {/* 睡眠分析 */}
+      {showSleepSection && (
+        <Card>
+          <CardHeader>
+            <CardTitle>睡眠分析</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* 睡眠基準値設定 */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+              <label className="text-sm font-medium text-gray-700">睡眠基準:</label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  max="24"
+                  value={sleepBaseline}
+                  onChange={(e) => setSleepBaseline(Number(e.target.value))}
+                  className="w-20 text-sm"
+                />
+                <span className="text-sm text-gray-600">時間</span>
+              </div>
+            </div>
+
+            {/* グラフ表示エリア */}
+            {loading ? (
+              <div className="text-center py-8 text-gray-500">読み込み中...</div>
+            ) : conditionData.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                データがありません
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="overflow-x-auto -mx-2 sm:mx-0">
+                  <div className="relative min-w-max p-2 sm:p-4">
+                    {(() => {
+                      const GRAPH_HEIGHT = 200; // グラフの高さを拡大
+                      const maxSleepHours = Math.max(
+                        sleepBaseline * 1.5,
+                        ...conditionData.map(item => item.sleepHours ?? 0)
+                      );
+                      const BAR_WIDTH = 32; // バーの幅を拡大（8→32）
+                      const GAP = 4; // バー間隔
+
+                      return (
+                        <div className="relative" style={{ height: `${GRAPH_HEIGHT}px` }}>
+                          {/* Y軸ラベル */}
+                          <div className="absolute left-0 top-0 bottom-0 w-10 flex flex-col justify-between text-xs text-gray-500">
+                            <span>{maxSleepHours.toFixed(0)}h</span>
+                            <span>{(maxSleepHours / 2).toFixed(0)}h</span>
+                            <span>0h</span>
+                          </div>
+
+                          {/* グラフエリア */}
+                          <div className="ml-12 relative" style={{ height: `${GRAPH_HEIGHT}px` }}>
+                            {/* 基準ライン */}
+                            <div
+                              className="absolute w-full border-t-2 border-dashed border-gray-400"
+                              style={{
+                                bottom: `${(sleepBaseline / maxSleepHours) * GRAPH_HEIGHT}px`
+                              }}
+                            >
+                              <span className="absolute -top-4 left-0 text-xs font-medium text-gray-600 bg-white px-1">
+                                基準: {sleepBaseline}h
+                              </span>
+                            </div>
+
+                            {/* バーと折れ線 */}
+                            <div className={`flex gap-[${GAP}px] items-end relative`} style={{ height: `${GRAPH_HEIGHT}px`, gap: `${GAP}px` }}>
+                              {/* バーグラフ */}
+                              {conditionData.map((item) => {
+                                const sleepHours = item.sleepHours ?? null;
+                                if (sleepHours === null) {
+                                  return (
+                                    <div
+                                      key={`${item.slotIndex}-sleep-bar`}
+                                      style={{ width: `${BAR_WIDTH}px`, height: `${GRAPH_HEIGHT}px` }}
+                                    />
+                                  );
+                                }
+
+                                const diff = sleepHours - sleepBaseline;
+                                const isAbove = diff >= 0;
+                                const barHeight = Math.abs(diff / maxSleepHours) * GRAPH_HEIGHT;
+                                const baselinePosition = (sleepBaseline / maxSleepHours) * GRAPH_HEIGHT;
+
+                                return (
+                                  <div
+                                    key={`${item.slotIndex}-sleep-bar`}
+                                    className="relative"
+                                    style={{ width: `${BAR_WIDTH}px`, height: `${GRAPH_HEIGHT}px` }}
+                                  >
+                                    <div
+                                      className={`${isAbove ? "bg-blue-400" : "bg-blue-300"} rounded-t`}
+                                      style={{
+                                        position: "absolute",
+                                        bottom: isAbove ? `${baselinePosition}px` : `${baselinePosition - barHeight}px`,
+                                        height: `${barHeight}px`,
+                                        width: "100%",
+                                      }}
+                                      title={`${sleepHours.toFixed(1)}時間`}
+                                    />
+                                  </div>
+                                );
+                              })}
+
+                              {/* 折れ線グラフ */}
+                              <svg
+                                className="absolute top-0 left-0 pointer-events-none"
+                                style={{
+                                  width: `${conditionData.length * (BAR_WIDTH + GAP)}px`,
+                                  height: `${GRAPH_HEIGHT}px`
+                                }}
+                              >
+                                {conditionData.map((item, index) => {
+                                  const sleepHours = item.sleepHours;
+                                  if (sleepHours === null) return null;
+
+                                  const nextItem = conditionData[index + 1];
+                                  if (!nextItem || nextItem.sleepHours === null) return null;
+
+                                  const x1 = index * (BAR_WIDTH + GAP) + BAR_WIDTH / 2;
+                                  const y1 = GRAPH_HEIGHT - (sleepHours / maxSleepHours) * GRAPH_HEIGHT;
+                                  const x2 = (index + 1) * (BAR_WIDTH + GAP) + BAR_WIDTH / 2;
+                                  const y2 = GRAPH_HEIGHT - (nextItem.sleepHours / maxSleepHours) * GRAPH_HEIGHT;
+
+                                  return (
+                                    <line
+                                      key={`${item.slotIndex}-sleep-line`}
+                                      x1={x1}
+                                      y1={y1}
+                                      x2={x2}
+                                      y2={y2}
+                                      stroke="#3b82f6"
+                                      strokeWidth="2.5"
+                                    />
+                                  );
+                                })}
+                                {/* 点 */}
+                                {conditionData.map((item, index) => {
+                                  const sleepHours = item.sleepHours;
+                                  if (sleepHours === null) return null;
+
+                                  const x = index * (BAR_WIDTH + GAP) + BAR_WIDTH / 2;
+                                  const y = GRAPH_HEIGHT - (sleepHours / maxSleepHours) * GRAPH_HEIGHT;
+
+                                  return (
+                                    <circle
+                                      key={`${item.slotIndex}-sleep-point`}
+                                      cx={x}
+                                      cy={y}
+                                      r="4"
+                                      fill="#3b82f6"
+                                    />
+                                  );
+                                })}
+                              </svg>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* X軸ラベル */}
+                    <div className="ml-12 flex gap-1 mt-2" style={{ gap: "4px" }}>
+                      {conditionData.map((item, index) => (
+                        <div
+                          key={`${item.slotIndex}-sleep-label`}
+                          className="flex flex-col items-center"
+                          style={{ width: "32px" }}
+                        >
+                          {index % 2 === 0 && (
+                            <span className="text-xs text-gray-600">
+                              {getSlotLabel(item)}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </CardContent>
         </Card>
       )}
 

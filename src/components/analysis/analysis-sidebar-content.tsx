@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils";
 
-export type AnalysisView = "dashboard" | "condition" | "tag";
+export type AnalysisView = "dashboard" | "condition" | "sleep" | "tag";
 
 interface AnalysisSidebarContentProps {
   selectedView: AnalysisView;
@@ -12,6 +12,7 @@ interface AnalysisSidebarContentProps {
 const NAV_ITEMS: Array<{ key: AnalysisView; label: string; description?: string }> = [
   { key: "dashboard", label: "Dashboard", description: "全体概要" },
   { key: "condition", label: "コンディション推移", description: "時系列の変化" },
+  { key: "sleep", label: "睡眠分析", description: "睡眠時間の推移と基準値との比較" },
   { key: "tag", label: "タグ影響ベイズ推定", description: "タグ別寄与度をベイズ推定で評価" },
 ];
 

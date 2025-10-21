@@ -3,7 +3,7 @@ import { and, gte, lte, isNotNull } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/lib/db/client";
-import { tracks } from "@/lib/db/schema";
+import { tracks, dailies } from "@/lib/db/schema";
 import {
   toJSTDateString,
   fromJSTDateString,
@@ -106,6 +106,7 @@ export async function GET(request: Request) {
   const fromDate = fromJSTDateString(from, "00:00:00");
   const toDate = fromJSTDateString(to, "23:59:59");
 
+  // tracks データ取得
   const data = await db
     .select({
       createdAt: tracks.createdAt,
@@ -121,7 +122,25 @@ export async function GET(request: Request) {
     )
     .orderBy(tracks.createdAt);
 
-  // 指定粒度で集計
+  // dailies データ取得（睡眠情報）
+  const sleepData = await db
+    .select({
+      date: dailies.date,
+      sleepStart: dailies.sleepStart,
+      sleepEnd: dailies.sleepEnd,
+    })
+    .from(dailies)
+    .where(
+      and(
+        gte(dailies.date, from),
+        lte(dailies.date, to),
+        isNotNull(dailies.sleepStart),
+        isNotNull(dailies.sleepEnd),
+      ),
+    )
+    .orderBy(dailies.date);
+
+  // 指定粒度で集計（コンディション）
   const slotMap = new Map<number, {
     min: number;
     max: number;
@@ -151,6 +170,31 @@ export async function GET(request: Request) {
     }
   }
 
+  // 睡眠データをスロットにマッピング
+  const sleepMap = new Map<number, { totalHours: number; count: number }>();
+
+  for (const item of sleepData) {
+    if (!item.sleepStart || !item.sleepEnd) continue;
+
+    // 睡眠時間を計算（時間単位）
+    const sleepHours = (new Date(item.sleepEnd).getTime() - new Date(item.sleepStart).getTime()) / (1000 * 60 * 60);
+
+    // 日付文字列からスロットインデックスを計算
+    const dateTimestamp = fromJSTDateString(item.date, "00:00:00").getTime();
+    const slotIndex = Math.floor((dateTimestamp - fromDate.getTime()) / granularityMs);
+
+    const existing = sleepMap.get(slotIndex);
+    if (existing) {
+      existing.totalHours += sleepHours;
+      existing.count += 1;
+    } else {
+      sleepMap.set(slotIndex, {
+        totalHours: sleepHours,
+        count: 1,
+      });
+    }
+  }
+
   // 全スロットを生成（欠損を補完）
   const totalSlots = Math.ceil((toDate.getTime() - fromDate.getTime()) / granularityMs);
   const result = [];
@@ -160,6 +204,7 @@ export async function GET(request: Request) {
     const slotEnd = new Date(slotStart.getTime() + granularityMs);
 
     const data = slotMap.get(i);
+    const sleep = sleepMap.get(i);
 
     // 各コンディション値の比率を計算
     const counts = data?.counts ?? {};
@@ -173,6 +218,9 @@ export async function GET(request: Request) {
       }
     }
 
+    // 睡眠時間の平均を計算（粒度が日単位以上の場合は平均を取る）
+    const avgSleepHours = sleep && sleep.count > 0 ? sleep.totalHours / sleep.count : null;
+
     result.push({
       slotIndex: i,
       startTime: slotStart.toISOString(),
@@ -182,6 +230,7 @@ export async function GET(request: Request) {
       count: totalCount,
       counts: totalCount > 0 ? counts : {},
       ratios: totalCount > 0 ? ratios : {},
+      sleepHours: avgSleepHours,
     });
   }
 
