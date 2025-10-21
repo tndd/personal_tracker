@@ -204,57 +204,56 @@ export default function AnalysisPage() {
         <p className="mt-1 text-sm text-gray-500">健康データの分析</p>
       </div>
 
-      {/* 粒度と期間の選択 */}
-      <Card>
-        <CardContent className="p-3 sm:p-4 space-y-3">
-          {/* 粒度選択 */}
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-            <label className="text-sm font-medium text-gray-700">粒度:</label>
-            <div className="flex flex-wrap gap-2">
-              {(["1d", "1w", "1m"] as Granularity[]).map((gran) => (
-                <button
-                  key={gran}
-                  onClick={() => setGranularity(gran)}
-                  className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-                    granularity === gran
-                      ? "bg-blue-500 text-white"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                  }`}
-                >
-                  {gran}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* 期間選択 */}
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-            <label className="text-sm font-medium text-gray-700">期間:</label>
-            <div className="flex items-center gap-2 sm:gap-4">
-              <Input
-                type="date"
-                value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
-                className="w-32 sm:w-40 text-sm"
-              />
-              <span className="text-gray-500">〜</span>
-              <Input
-                type="date"
-                value={toDate}
-                onChange={(e) => setToDate(e.target.value)}
-                className="w-32 sm:w-40 text-sm"
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* コンディション推移 */}
       <Card>
         <CardHeader>
-          <CardTitle>コンディション推移（{granularity}）</CardTitle>
+          <CardTitle>コンディション推移</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          {/* 粒度と期間の選択 */}
+          <div className="space-y-3 p-3 bg-gray-50 rounded-md">
+            {/* 粒度選択 */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+              <label className="text-sm font-medium text-gray-700">粒度:</label>
+              <div className="flex flex-wrap gap-2">
+                {(["1d", "1w", "1m"] as Granularity[]).map((gran) => (
+                  <button
+                    key={gran}
+                    onClick={() => setGranularity(gran)}
+                    className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                      granularity === gran
+                        ? "bg-blue-500 text-white"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    }`}
+                  >
+                    {gran}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 期間選択 */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+              <label className="text-sm font-medium text-gray-700">期間:</label>
+              <div className="flex items-center gap-2 sm:gap-4">
+                <Input
+                  type="date"
+                  value={fromDate}
+                  onChange={(e) => setFromDate(e.target.value)}
+                  className="w-32 sm:w-40 text-sm"
+                />
+                <span className="text-gray-500">〜</span>
+                <Input
+                  type="date"
+                  value={toDate}
+                  onChange={(e) => setToDate(e.target.value)}
+                  className="w-32 sm:w-40 text-sm"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* グラフ表示エリア */}
           {loading ? (
             <div className="text-center py-8 text-gray-500">読み込み中...</div>
           ) : conditionData.length === 0 ? (
