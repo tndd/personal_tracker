@@ -24,6 +24,11 @@ const GRANULARITY_CONFIG: Record<Granularity, { lagDays: number[]; lagWeights: n
   },
 };
 
+// 統計計算用の定数
+const PRIOR_WEIGHT = 5; // 事前仮定の仮想サンプル数
+const PRIOR_MEAN = 0; // ベースラインとの差分に対する事前平均
+const PRIOR_VARIANCE = 1; // 事前分散（条件値のレンジに合わせた緩やかな幅）
+
 const querySchema = z.object({
   from: z
     .string()
@@ -34,9 +39,9 @@ const querySchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .optional(),
   granularity: z.enum(["1d", "1w", "1m"]).default("1d"),
-  priorWeight: z.coerce.number().positive().optional().default(5),
-  priorMean: z.coerce.number().optional().default(0),
-  priorVariance: z.coerce.number().positive().optional().default(1),
+  priorWeight: z.coerce.number().positive().optional().default(PRIOR_WEIGHT),
+  priorMean: z.coerce.number().optional().default(PRIOR_MEAN),
+  priorVariance: z.coerce.number().positive().optional().default(PRIOR_VARIANCE),
   lagWeight0: z.coerce.number().min(0).max(1).optional().default(1.0),
   lagWeight1: z.coerce.number().min(0).max(1).optional().default(0.67),
   lagWeight2: z.coerce.number().min(0).max(1).optional().default(0.5),
@@ -55,11 +60,6 @@ function toTimestampRange(date: string, isEnd: boolean): Date {
   }
   return new Date(`${date}T00:00:00.000Z`);
 }
-
-// 統計計算用の定数
-const PRIOR_WEIGHT = 5; // 事前仮定の仮想サンプル数
-const PRIOR_MEAN = 0; // ベースラインとの差分に対する事前平均
-const PRIOR_VARIANCE = 1; // 事前分散（条件値のレンジに合わせた緩やかな幅）
 
 type LagRecord = Array<number | null>;
 
@@ -366,28 +366,27 @@ export async function GET(request: Request) {
   for (const [tagId, stats] of Array.from(statsByTag.entries())) {
     const rawContribution = stats.rawMean !== null ? stats.rawMean - baselineMean : 0;
     const effectiveCount = stats.effectiveCount;
-    const posteriorWeight = effectiveCount + priorWeight;
-
-    const posteriorMean =
-      posteriorWeight > 0
-        ? (rawContribution * effectiveCount + priorMean * priorWeight) / posteriorWeight
-        : priorMean;
-
     const varianceComponent =
       effectiveCount > 0 && stats.weightedVariance > 0
         ? stats.weightedVariance
         : priorVariance;
 
-    const posteriorVarianceNumerator =
-      varianceComponent * effectiveCount + priorVariance * priorWeight;
+    const priorPrecision = priorVariance > 0 ? priorWeight / priorVariance : 0;
+    const dataPrecision =
+      varianceComponent > 0 && effectiveCount > 0 ? effectiveCount / varianceComponent : 0;
+    const posteriorPrecision = priorPrecision + dataPrecision;
 
     const posteriorVariance =
-      posteriorWeight > 0 ? posteriorVarianceNumerator / posteriorWeight : priorVariance;
+      posteriorPrecision > 0 ? 1 / posteriorPrecision : priorVariance;
 
+    const posteriorMean =
+      posteriorPrecision > 0
+        ? (priorPrecision * priorMean + dataPrecision * rawContribution) / posteriorPrecision
+        : priorMean;
+
+    // 精度合算で求めた事後分散から標準偏差を算出し信頼区間を評価する
     const posteriorStd =
-      posteriorWeight > 0
-        ? Math.sqrt(posteriorVariance / posteriorWeight)
-        : Math.sqrt(priorVariance);
+      posteriorVariance > 0 ? Math.sqrt(posteriorVariance) : Math.sqrt(priorVariance);
 
     const zScore = posteriorStd > 0 ? posteriorMean / posteriorStd : Number.POSITIVE_INFINITY;
     const probability = Number.isFinite(zScore) ? normalCdf(Math.abs(zScore)) : 1;
