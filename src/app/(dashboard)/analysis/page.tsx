@@ -122,6 +122,14 @@ export default function AnalysisPage() {
   const [showMetadata, setShowMetadata] = useState(false);
   const metadataRef = useRef<HTMLDivElement>(null);
 
+  // 前提条件のstate
+  const [priorWeight, setPriorWeight] = useState(5);
+  const [priorMean, setPriorMean] = useState(0);
+  const [priorVariance, setPriorVariance] = useState(1);
+  const [lagWeight0, setLagWeight0] = useState(1.0);
+  const [lagWeight1, setLagWeight1] = useState(0.67);
+  const [lagWeight2, setLagWeight2] = useState(0.5);
+
   // デフォルト期間（粒度の16区間分）
   const defaultPeriod = calculateDefaultPeriod(granularity);
   const [fromDate, setFromDate] = useState(defaultPeriod.from);
@@ -166,7 +174,13 @@ export default function AnalysisPage() {
         const params = new URLSearchParams({
           granularity,
           from: fromDate,
-          to: toDate
+          to: toDate,
+          priorWeight: priorWeight.toString(),
+          priorMean: priorMean.toString(),
+          priorVariance: priorVariance.toString(),
+          lagWeight0: lagWeight0.toString(),
+          lagWeight1: lagWeight1.toString(),
+          lagWeight2: lagWeight2.toString(),
         });
         const response = await fetch(`/api/analysis/tag-correlation?${params}`);
         if (response.ok) {
@@ -180,7 +194,7 @@ export default function AnalysisPage() {
       }
     };
     fetchTagCorrelation();
-  }, [granularity, fromDate, toDate]);
+  }, [granularity, fromDate, toDate, priorWeight, priorMean, priorVariance, lagWeight0, lagWeight1, lagWeight2]);
 
   // ポップアップの外側クリックで閉じる
   useEffect(() => {
@@ -408,27 +422,72 @@ export default function AnalysisPage() {
                 前提条件
               </button>
               {showMetadata && (
-                <div className="absolute right-0 top-full mt-2 w-80 p-3 bg-white border border-gray-200 rounded-md shadow-lg z-10 text-xs text-gray-600 space-y-2">
+                <div className="absolute right-0 top-full mt-2 w-96 p-4 bg-white border border-gray-200 rounded-md shadow-lg z-10 text-xs space-y-4">
                   <div>
-                    基準平均（全タグ加重平均）: {tagCorrelation.metadata.baselineMean.toFixed(2)}
+                    <div className="font-semibold text-gray-700 mb-2">基準平均（全タグ加重平均）</div>
+                    <div className="text-gray-600">{tagCorrelation.metadata.baselineMean.toFixed(2)}</div>
                   </div>
-                  <div>
-                    事前設定: 平均 {tagCorrelation.metadata.priorMean.toFixed(2)} ／ 仮想サンプル数 {tagCorrelation.metadata.priorWeight} ／ 分散 {tagCorrelation.metadata.priorVariance.toFixed(2)}
+
+                  <div className="border-t pt-3">
+                    <div className="font-semibold text-gray-700 mb-3">事前分布パラメータ</div>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <label className="w-32 text-gray-600">事前平均:</label>
+                        <Input
+                          type="number"
+                          step="0.1"
+                          value={priorMean}
+                          onChange={(e) => setPriorMean(Number(e.target.value))}
+                          className="flex-1 h-7 text-xs"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <label className="w-32 text-gray-600">仮想サンプル数:</label>
+                        <Input
+                          type="number"
+                          step="1"
+                          min="1"
+                          value={priorWeight}
+                          onChange={(e) => setPriorWeight(Number(e.target.value))}
+                          className="flex-1 h-7 text-xs"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <label className="w-32 text-gray-600">事前分散:</label>
+                        <Input
+                          type="number"
+                          step="0.1"
+                          min="0.1"
+                          value={priorVariance}
+                          onChange={(e) => setPriorVariance(Number(e.target.value))}
+                          className="flex-1 h-7 text-xs"
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                    <span>ラグ重み:</span>
-                    {tagCorrelation.metadata.lagDays.map((day, index) => {
-                      const weight = tagCorrelation.metadata.lagWeights[index];
-                      const weightLabel =
-                        typeof weight === "number" && Number.isFinite(weight)
-                          ? Number(weight.toFixed(2)).toString()
-                          : "-";
-                      return (
-                        <span key={`${day}-${index}`} className="text-gray-600">
-                          {formatLagDescription(day)} {weightLabel}
-                        </span>
-                      );
-                    })}
+
+                  <div className="border-t pt-3">
+                    <div className="font-semibold text-gray-700 mb-3">ラグ重み</div>
+                    <div className="space-y-2">
+                      {tagCorrelation.metadata.lagDays.map((day, index) => {
+                        const weights = [lagWeight0, lagWeight1, lagWeight2];
+                        const setters = [setLagWeight0, setLagWeight1, setLagWeight2];
+                        return (
+                          <div key={`${day}-${index}`} className="flex items-center gap-2">
+                            <label className="w-32 text-gray-600">{formatLagDescription(day)}:</label>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              max="1"
+                              value={weights[index]}
+                              onChange={(e) => setters[index](Number(e.target.value))}
+                              className="flex-1 h-7 text-xs"
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               )}

@@ -34,6 +34,12 @@ const querySchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .optional(),
   granularity: z.enum(["1d", "1w", "1m"]).default("1d"),
+  priorWeight: z.coerce.number().positive().optional().default(5),
+  priorMean: z.coerce.number().optional().default(0),
+  priorVariance: z.coerce.number().positive().optional().default(1),
+  lagWeight0: z.coerce.number().min(0).max(1).optional().default(1.0),
+  lagWeight1: z.coerce.number().min(0).max(1).optional().default(0.67),
+  lagWeight2: z.coerce.number().min(0).max(1).optional().default(0.5),
 });
 
 function formatDate(date: Date) {
@@ -176,16 +182,28 @@ export async function GET(request: Request) {
 
   const granularity = parsed.data.granularity;
   const config = GRANULARITY_CONFIG[granularity];
-  const { lagDays, lagWeights } = config;
+  const { lagDays } = config;
+
+  // クエリパラメータからラグ重みを取得
+  const lagWeights = [
+    parsed.data.lagWeight0,
+    parsed.data.lagWeight1,
+    parsed.data.lagWeight2,
+  ];
+
+  // クエリパラメータから事前分布パラメータを取得
+  const priorWeight = parsed.data.priorWeight;
+  const priorMean = parsed.data.priorMean;
+  const priorVariance = parsed.data.priorVariance;
 
   if (lagDays.length === 0 || lagWeights.length === 0) {
     return NextResponse.json({
       positive: [],
       negative: [],
       metadata: {
-        priorWeight: PRIOR_WEIGHT,
-        priorMean: PRIOR_MEAN,
-        priorVariance: PRIOR_VARIANCE,
+        priorWeight,
+        priorMean,
+        priorVariance,
         lagWeights: [],
         lagDays: [],
         baselineMean: 0,
@@ -292,9 +310,9 @@ export async function GET(request: Request) {
       positive: [],
       negative: [],
       metadata: {
-        priorWeight: PRIOR_WEIGHT,
-        priorMean: PRIOR_MEAN,
-        priorVariance: PRIOR_VARIANCE,
+        priorWeight,
+        priorMean,
+        priorVariance,
         lagWeights,
         lagDays,
         baselineMean: 0,
@@ -348,28 +366,28 @@ export async function GET(request: Request) {
   for (const [tagId, stats] of Array.from(statsByTag.entries())) {
     const rawContribution = stats.rawMean !== null ? stats.rawMean - baselineMean : 0;
     const effectiveCount = stats.effectiveCount;
-    const posteriorWeight = effectiveCount + PRIOR_WEIGHT;
+    const posteriorWeight = effectiveCount + priorWeight;
 
     const posteriorMean =
       posteriorWeight > 0
-        ? (rawContribution * effectiveCount + PRIOR_MEAN * PRIOR_WEIGHT) / posteriorWeight
-        : PRIOR_MEAN;
+        ? (rawContribution * effectiveCount + priorMean * priorWeight) / posteriorWeight
+        : priorMean;
 
     const varianceComponent =
       effectiveCount > 0 && stats.weightedVariance > 0
         ? stats.weightedVariance
-        : PRIOR_VARIANCE;
+        : priorVariance;
 
     const posteriorVarianceNumerator =
-      varianceComponent * effectiveCount + PRIOR_VARIANCE * PRIOR_WEIGHT;
+      varianceComponent * effectiveCount + priorVariance * priorWeight;
 
     const posteriorVariance =
-      posteriorWeight > 0 ? posteriorVarianceNumerator / posteriorWeight : PRIOR_VARIANCE;
+      posteriorWeight > 0 ? posteriorVarianceNumerator / posteriorWeight : priorVariance;
 
     const posteriorStd =
       posteriorWeight > 0
         ? Math.sqrt(posteriorVariance / posteriorWeight)
-        : Math.sqrt(PRIOR_VARIANCE);
+        : Math.sqrt(priorVariance);
 
     const zScore = posteriorStd > 0 ? posteriorMean / posteriorStd : Number.POSITIVE_INFINITY;
     const probability = Number.isFinite(zScore) ? normalCdf(Math.abs(zScore)) : 1;
@@ -419,9 +437,9 @@ export async function GET(request: Request) {
     positive,
     negative,
     metadata: {
-      priorWeight: PRIOR_WEIGHT,
-      priorMean: PRIOR_MEAN,
-      priorVariance: PRIOR_VARIANCE,
+      priorWeight,
+      priorMean,
+      priorVariance,
       lagWeights,
       lagDays,
       baselineMean,
