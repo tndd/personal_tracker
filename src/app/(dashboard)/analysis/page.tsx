@@ -636,16 +636,51 @@ export default function AnalysisPage() {
                                   >
                                     {/* 線 */}
                                     {conditionData.map((item, index) => {
-                                      const sleepHours = item.sleepHours;
-                                      if (sleepHours === null) return null;
-
                                       const nextItem = conditionData[index + 1];
-                                      if (!nextItem || nextItem.sleepHours === null) return null;
+                                      if (!nextItem) return null;
 
+                                      const sleepHours = item.sleepHours;
+                                      const nextSleepHours = nextItem.sleepHours;
+
+                                      // 両方のデータがない場合はスキップ
+                                      if (sleepHours === null && nextSleepHours === null) return null;
+
+                                      // どちらかがnullの場合は補間して薄い線で接続
+                                      const hasGap = sleepHours === null || nextSleepHours === null;
+
+                                      // データがない場合は最も近いデータポイントを探して補間
+                                      let y1: number, y2: number;
                                       const x1 = index * (BAR_WIDTH + GAP) + BAR_WIDTH / 2;
-                                      const y1 = GRAPH_HEIGHT - (sleepHours / maxSleepHours) * GRAPH_HEIGHT;
                                       const x2 = (index + 1) * (BAR_WIDTH + GAP) + BAR_WIDTH / 2;
-                                      const y2 = GRAPH_HEIGHT - (nextItem.sleepHours / maxSleepHours) * GRAPH_HEIGHT;
+
+                                      if (sleepHours !== null && nextSleepHours !== null) {
+                                        // 両方データがある場合は通常の線
+                                        y1 = GRAPH_HEIGHT - (sleepHours / maxSleepHours) * GRAPH_HEIGHT;
+                                        y2 = GRAPH_HEIGHT - (nextSleepHours / maxSleepHours) * GRAPH_HEIGHT;
+                                      } else if (sleepHours !== null) {
+                                        // 次のデータがない場合
+                                        y1 = GRAPH_HEIGHT - (sleepHours / maxSleepHours) * GRAPH_HEIGHT;
+                                        // 次の有効なデータポイントを探す
+                                        let nextValidIndex = index + 1;
+                                        while (nextValidIndex < conditionData.length && conditionData[nextValidIndex].sleepHours === null) {
+                                          nextValidIndex++;
+                                        }
+                                        if (nextValidIndex < conditionData.length) {
+                                          y2 = GRAPH_HEIGHT - (conditionData[nextValidIndex].sleepHours! / maxSleepHours) * GRAPH_HEIGHT;
+                                        } else {
+                                          return null; // 次の有効なデータがない
+                                        }
+                                      } else {
+                                        // 現在のデータがない場合
+                                        // 前の有効なデータポイントを探す
+                                        let prevValidIndex = index;
+                                        while (prevValidIndex >= 0 && conditionData[prevValidIndex].sleepHours === null) {
+                                          prevValidIndex--;
+                                        }
+                                        if (prevValidIndex < 0) return null; // 前の有効なデータがない
+                                        y1 = GRAPH_HEIGHT - (conditionData[prevValidIndex].sleepHours! / maxSleepHours) * GRAPH_HEIGHT;
+                                        y2 = GRAPH_HEIGHT - (nextSleepHours / maxSleepHours) * GRAPH_HEIGHT;
+                                      }
 
                                       return (
                                         <line
@@ -654,8 +689,10 @@ export default function AnalysisPage() {
                                           y1={y1}
                                           x2={x2}
                                           y2={y2}
-                                          stroke="#3b82f6"
+                                          stroke="#EA4335"
                                           strokeWidth="2.5"
+                                          opacity={hasGap ? 0.3 : 1}
+                                          strokeDasharray={hasGap ? "4 4" : undefined}
                                         />
                                       );
                                     })}
@@ -673,7 +710,7 @@ export default function AnalysisPage() {
                                           cx={x}
                                           cy={y}
                                           r="4"
-                                          fill="#3b82f6"
+                                          fill="#EA4335"
                                         />
                                       );
                                     })}
