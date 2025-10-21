@@ -1,5 +1,6 @@
 /**
- * STG環境に3ヶ月分のサンプルデータを投入するスクリプト
+ * STG環境に6ヶ月分のサンプルデータを投入するスクリプト
+ * プラス・ニュートラル・マイナスのコンディションをバランスよく生成
  *
  * 使い方:
  *   npm run seed:stg
@@ -119,8 +120,13 @@ async function main() {
     ]);
     console.log('✅ タグを作成しました（16件）');
 
+    console.log('📅 日記データを作成中...');
+    const { data: dailyData, conditionMap } = generateDailyData();
+    await db.insert(dailies).values(dailyData);
+    console.log(`✅ 日記データを作成しました（${dailyData.length}件）`);
+
     console.log('📊 トラックデータを作成中...');
-    const trackData = generateTrackData();
+    const trackData = generateTrackData(conditionMap);
 
     // バッチ処理（50件ずつ）
     const batchSize = 50;
@@ -130,11 +136,6 @@ async function main() {
       console.log(`  ${Math.min(i + batchSize, trackData.length)}/${trackData.length} 件作成完了`);
     }
     console.log(`✅ トラックデータを作成しました（${trackData.length}件）`);
-
-    console.log('📅 日記データを作成中...');
-    const dailyData = generateDailyData();
-    await db.insert(dailies).values(dailyData);
-    console.log(`✅ 日記データを作成しました（${dailyData.length}件）`);
 
     console.log('');
     console.log('🎉 サンプルデータの投入が完了しました！');
@@ -148,48 +149,61 @@ async function main() {
   }
 }
 
+// タグごとの寄与度定義（翌日以降のdaily conditionへの影響）
+const TAG_EFFECTS = {
+  // 症状タグ（マイナス寄与）
+  [TAG_HEADACHE]: { contribution: -1.2, variance: 0.4 },
+  [TAG_DIZZY]: { contribution: -0.9, variance: 0.3 },
+  [TAG_NAUSEA]: { contribution: -1.1, variance: 0.4 },
+  [TAG_FATIGUE]: { contribution: -0.8, variance: 0.3 },
+  [TAG_INSOMNIA]: { contribution: -1.3, variance: 0.4 },
+  [TAG_STOMACHACHE]: { contribution: -1.0, variance: 0.3 },
+
+  // 服薬タグ（弱いプラス寄与、または中立）
+  [TAG_LOXONIN]: { contribution: 0.3, variance: 0.5 },
+  [TAG_DEPAS]: { contribution: 0.2, variance: 0.5 },
+  [TAG_STOMACH_MED]: { contribution: 0.4, variance: 0.4 },
+  [TAG_SUPPLEMENT]: { contribution: 0.1, variance: 0.2 },
+
+  // 活動タグ（プラス寄与）
+  [TAG_WALK]: { contribution: 0.9, variance: 0.3 },
+  [TAG_EXERCISE]: { contribution: 1.2, variance: 0.4 },
+  [TAG_SLEEP_GOOD]: { contribution: 1.4, variance: 0.3 },
+  [TAG_STRETCH]: { contribution: 0.7, variance: 0.3 },
+  [TAG_HYDRATION]: { contribution: 0.3, variance: 0.2 },
+  [TAG_MEAL]: { contribution: 0.5, variance: 0.3 },
+} as const;
+
 // トラックデータ生成関数
-function generateTrackData() {
+function generateTrackData(dailyConditions: Map<string, number>) {
   const data = [];
 
-  // 今日から90日前までのデータを生成
+  // 今日から180日前までのデータを生成
   const today = new Date();
   const startDate = new Date(today);
-  startDate.setDate(today.getDate() - 89); // 90日分（今日を含む）
+  startDate.setDate(today.getDate() - 179); // 180日分（今日を含む）
 
-  // 1日のパターン定義（condition値の範囲）
-  const dayPatterns = [
-    { name: '+2のみ', conditions: [2], weight: 3 },
-    { name: '+2~+1', conditions: [2, 1], weight: 8 },
-    { name: '+1のみ', conditions: [1], weight: 10 },
-    { name: '+1~0', conditions: [1, 0], weight: 15 },
-    { name: '0のみ', conditions: [0], weight: 20 },
-    { name: '0~-1', conditions: [0, -1], weight: 15 },
-    { name: '-1のみ', conditions: [-1], weight: 10 },
-    { name: '-1~-2', conditions: [-1, -2], weight: 8 },
-    { name: '-2のみ', conditions: [-2], weight: 3 },
-    { name: '+2~0(回復)', conditions: [2, 1, 0], weight: 4 },
-    { name: '0~-2(悪化)', conditions: [0, -1, -2], weight: 4 },
-  ];
-
-  // 累積重みを計算
-  let totalWeight = 0;
-  const cumulativeWeights: number[] = [];
-  for (const pattern of dayPatterns) {
-    totalWeight += pattern.weight;
-    cumulativeWeights.push(totalWeight);
-  }
-
-  // パターンをランダムに選択する関数
-  function selectPattern() {
-    const rand = Math.random() * totalWeight;
-    for (let i = 0; i < cumulativeWeights.length; i++) {
-      if (rand < cumulativeWeights[i]) {
-        return dayPatterns[i];
-      }
-    }
-    return dayPatterns[0];
-  }
+  // タグごとの出現確率（現実的なバランス）
+  const tagProbabilities = {
+    // 症状タグ（低頻度だが確実に出現）
+    symptoms: {
+      tags: [TAG_HEADACHE, TAG_DIZZY, TAG_NAUSEA, TAG_FATIGUE, TAG_INSOMNIA, TAG_STOMACHACHE],
+      probability: 0.15, // 15%の日に症状あり
+      multipleTagChance: 0.3, // 30%の確率で複数症状
+    },
+    // 活動タグ（高頻度）
+    activities: {
+      tags: [TAG_WALK, TAG_EXERCISE, TAG_SLEEP_GOOD, TAG_STRETCH, TAG_HYDRATION, TAG_MEAL],
+      probability: 0.7, // 70%の日に何らかの活動記録
+      multipleTagChance: 0.6, // 60%の確率で複数活動
+    },
+    // 服薬タグ（中頻度、症状がある時に出やすい）
+    medications: {
+      tags: [TAG_LOXONIN, TAG_DEPAS, TAG_STOMACH_MED, TAG_SUPPLEMENT],
+      probability: 0.2, // 20%の日に服薬
+      multipleTagChance: 0.2, // 20%の確率で複数服薬
+    },
+  };
 
   // メモのテンプレート
   const memos = {
@@ -233,88 +247,81 @@ function generateTrackData() {
     { hour: 21, minute: () => Math.floor(Math.random() * 60) },
   ];
 
-  // 90日分のデータを生成
-  for (let dayOffset = 0; dayOffset < 90; dayOffset++) {
+  // 180日分のデータを生成
+  for (let dayOffset = 0; dayOffset < 180; dayOffset++) {
     const currentDate = new Date(startDate);
     currentDate.setDate(startDate.getDate() + dayOffset);
     const dateStr = currentDate.toISOString().split('T')[0];
 
-    // この日のパターンを選択
-    const pattern = selectPattern();
-    const conditions = pattern.conditions;
+    // この日の翌日のdaily conditionを取得（タグの影響を受ける側）
+    const nextDate = new Date(currentDate);
+    nextDate.setDate(currentDate.getDate() + 1);
+    const nextDateStr = nextDate.toISOString().split('T')[0];
+    const nextDayCondition = dailyConditions.get(nextDateStr) ?? 0;
 
-    // この日のtrack数（4-8件）
-    const trackCount = 4 + Math.floor(Math.random() * 5);
+    // この日のtrack数（5-8件：現実的な範囲）
+    const trackCount = 5 + Math.floor(Math.random() * 4);
 
     for (let i = 0; i < trackCount; i++) {
-      // この時間帯のcondition値をパターンから選択
-      const condition = conditions[Math.floor(Math.random() * conditions.length)];
-
-      // メモを選択
-      const memoList = memos[condition as keyof typeof memos];
-      const memo = memoList[Math.floor(Math.random() * memoList.length)];
-
-      // タグを選択（よりリアルなパターン）
+      // タグを選択（翌日のconditionに基づいて逆算的に選ぶ）
       let tagIds: string[] = [];
-      if (condition >= 1) {
-        // 良い日は活動タグ（複数追加されやすい）
-        const activityTags = [TAG_WALK, TAG_EXERCISE, TAG_SLEEP_GOOD, TAG_STRETCH, TAG_MEAL];
-        // 良い日は必ず1つ以上の活動タグ
-        if (Math.random() > 0.1) {
-          tagIds.push(activityTags[Math.floor(Math.random() * activityTags.length)]);
-        }
-        // 運動・ストレッチは高確率（condition +2ならさらに高い）
-        if (condition === 2) {
-          if (Math.random() > 0.3 && !tagIds.includes(TAG_EXERCISE)) {
-            tagIds.push(TAG_EXERCISE);
-          }
-          if (Math.random() > 0.4 && !tagIds.includes(TAG_STRETCH)) {
-            tagIds.push(TAG_STRETCH);
-          }
-        }
-        // 良い睡眠は condition +1 以上で高確率
-        if (Math.random() > 0.4 && !tagIds.includes(TAG_SLEEP_GOOD)) {
-          tagIds.push(TAG_SLEEP_GOOD);
-        }
-        // 散歩も高確率
-        if (Math.random() > 0.5 && !tagIds.includes(TAG_WALK)) {
-          tagIds.push(TAG_WALK);
-        }
-        // 水分補給は高確率
-        if (Math.random() > 0.4) {
-          tagIds.push(TAG_HYDRATION);
-        }
-        // 食事も高確率
-        if (Math.random() > 0.5 && !tagIds.includes(TAG_MEAL)) {
-          tagIds.push(TAG_MEAL);
-        }
-      } else if (condition <= -1) {
-        // 悪い日は症状タグ + 服薬タグ
-        const symptomTags = [TAG_HEADACHE, TAG_DIZZY, TAG_NAUSEA, TAG_FATIGUE, TAG_INSOMNIA, TAG_STOMACHACHE];
-        const medicationTags = [TAG_LOXONIN, TAG_DEPAS, TAG_STOMACH_MED];
 
-        // 症状は必ず1つ以上
-        if (Math.random() > 0.1) {
-          tagIds.push(symptomTags[Math.floor(Math.random() * symptomTags.length)]);
-        }
-        // 重症の場合は症状が複数
-        if (condition === -2 && Math.random() > 0.5) {
-          const secondSymptom = symptomTags[Math.floor(Math.random() * symptomTags.length)];
-          if (!tagIds.includes(secondSymptom)) {
-            tagIds.push(secondSymptom);
+      // 翌日が良いコンディション → 今日は活動タグを多めに
+      if (nextDayCondition >= 1) {
+        if (Math.random() < tagProbabilities.activities.probability) {
+          const activityTags = tagProbabilities.activities.tags;
+          tagIds.push(activityTags[Math.floor(Math.random() * activityTags.length)]);
+
+          // 複数タグの追加
+          if (Math.random() < tagProbabilities.activities.multipleTagChance) {
+            const secondTag = activityTags[Math.floor(Math.random() * activityTags.length)];
+            if (!tagIds.includes(secondTag)) {
+              tagIds.push(secondTag);
+            }
           }
-        }
-        // 服薬
-        if (Math.random() > 0.3) {
-          tagIds.push(medicationTags[Math.floor(Math.random() * medicationTags.length)]);
-        }
-      } else {
-        // 普通の日（condition=0）も時々タグ付き
-        if (Math.random() > 0.5) {
-          const neutralTags = [TAG_MEAL, TAG_HYDRATION, TAG_STRETCH, TAG_SUPPLEMENT];
-          tagIds.push(neutralTags[Math.floor(Math.random() * neutralTags.length)]);
         }
       }
+
+      // 翌日が悪いコンディション → 今日は症状タグを多めに
+      if (nextDayCondition <= -1) {
+        if (Math.random() < tagProbabilities.symptoms.probability * 3) { // 確率を高める
+          const symptomTags = tagProbabilities.symptoms.tags;
+          tagIds.push(symptomTags[Math.floor(Math.random() * symptomTags.length)]);
+
+          // 複数タグの追加（悪い日は症状が重なりやすい）
+          if (Math.random() < tagProbabilities.symptoms.multipleTagChance * 1.5) {
+            const secondTag = symptomTags[Math.floor(Math.random() * symptomTags.length)];
+            if (!tagIds.includes(secondTag)) {
+              tagIds.push(secondTag);
+            }
+          }
+
+          // 服薬タグも追加されやすい
+          if (Math.random() < tagProbabilities.medications.probability * 2) {
+            const medTags = tagProbabilities.medications.tags;
+            tagIds.push(medTags[Math.floor(Math.random() * medTags.length)]);
+          }
+        }
+      }
+
+      // ニュートラルな日 → バランスよく
+      if (nextDayCondition === 0) {
+        // 活動タグ
+        if (Math.random() < tagProbabilities.activities.probability * 0.6) {
+          const activityTags = tagProbabilities.activities.tags;
+          tagIds.push(activityTags[Math.floor(Math.random() * activityTags.length)]);
+        }
+        // 症状タグも少し
+        if (Math.random() < tagProbabilities.symptoms.probability * 0.8) {
+          const symptomTags = tagProbabilities.symptoms.tags;
+          tagIds.push(symptomTags[Math.floor(Math.random() * symptomTags.length)]);
+        }
+      }
+
+      // メモ（trackのconditionはdailyと独立なので適当に選ぶ）
+      const trackCondition = [-2, -1, -1, 0, 0, 0, 0, 1, 1, 2][Math.floor(Math.random() * 10)];
+      const memoList = memos[trackCondition as keyof typeof memos];
+      const memo = memoList[Math.floor(Math.random() * memoList.length)];
 
       // 時間を決定（順番に時間帯を割り当て）
       const timeSlot = timeSlots[i % timeSlots.length];
@@ -326,7 +333,7 @@ function generateTrackData() {
 
       data.push({
         memo,
-        condition,
+        condition: trackCondition,
         tagIds,
         createdAt,
         updatedAt: new Date(),
@@ -338,13 +345,15 @@ function generateTrackData() {
 }
 
 // 日記データ生成関数（毎日生成 + 睡眠時刻付き）
-function generateDailyData() {
+// conditionのMapも返す（trackデータ生成時に参照するため）
+function generateDailyData(): { data: typeof dailies.$inferInsert[], conditionMap: Map<string, number> } {
   const data = [];
+  const conditionMap = new Map<string, number>();
 
-  // 今日から90日前までの日記データを毎日生成
+  // 今日から180日前までの日記データを毎日生成
   const today = new Date();
   const startDate = new Date(today);
-  startDate.setDate(today.getDate() - 89);
+  startDate.setDate(today.getDate() - 179);
 
   const dailyMemos = [
     '今日は調子が良かった。充実した一日だった。',
@@ -364,14 +373,17 @@ function generateDailyData() {
     '仕事が忙しかったが、充実感がある。',
   ];
 
-  for (let dayOffset = 0; dayOffset < 90; dayOffset++) {
+  for (let dayOffset = 0; dayOffset < 180; dayOffset++) {
     const currentDate = new Date(startDate);
     currentDate.setDate(startDate.getDate() + dayOffset);
     const dateStr = currentDate.toISOString().split('T')[0];
 
-    // condition値を重み付きでランダム選択（0が多め）
-    const conditionWeights = [-2, -2, -1, -1, -1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 2, 2];
+    // condition値をバランスよく選択（プラス・ニュートラル・マイナスを各33%程度）
+    const conditionWeights = [-2, -2, -2, -1, -1, -1, -1, -1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2];
     const condition = conditionWeights[Math.floor(Math.random() * conditionWeights.length)];
+
+    // Mapに保存
+    conditionMap.set(dateStr, condition);
 
     // メモ（70%の確率で追加）
     const memo = Math.random() > 0.3
@@ -426,7 +438,7 @@ function generateDailyData() {
     });
   }
 
-  return data;
+  return { data, conditionMap };
 }
 
 // スクリプト実行
