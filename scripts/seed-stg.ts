@@ -393,7 +393,6 @@ function generateDailyData(): { data: typeof dailies.$inferInsert[], conditionMa
     // 睡眠時刻（90%の確率で記録）
     let sleepStart = null;
     let sleepEnd = null;
-    let sleepQuality = null;
 
     if (Math.random() > 0.1) {
       // 就寝時刻: 22:00-2:00 (前日22時〜当日2時)
@@ -416,14 +415,6 @@ function generateDailyData(): { data: typeof dailies.$inferInsert[], conditionMa
       const sleepDuration = 6 + Math.random() * 3;
       sleepEnd = new Date(sleepStart.getTime() + sleepDuration * 60 * 60 * 1000);
 
-      // 睡眠の質: conditionと相関させる
-      if (condition >= 1) {
-        sleepQuality = Math.random() > 0.3 ? (Math.random() > 0.5 ? 2 : 1) : 0;
-      } else if (condition <= -1) {
-        sleepQuality = Math.random() > 0.3 ? (Math.random() > 0.5 ? -2 : -1) : 0;
-      } else {
-        sleepQuality = Math.floor(Math.random() * 5) - 2; // -2 to +2
-      }
     }
 
     data.push({
@@ -432,7 +423,6 @@ function generateDailyData(): { data: typeof dailies.$inferInsert[], conditionMa
       condition,
       sleepStart,
       sleepEnd,
-      sleepQuality,
       createdAt: new Date(),
       updatedAt: new Date(),
     });

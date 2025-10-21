@@ -88,7 +88,6 @@ export const dailies = pgTable(
     condition: integer("condition").default(0),
     sleepStart: timestamp("sleep_start", { withTimezone: true }),
     sleepEnd: timestamp("sleep_end", { withTimezone: true }),
-    sleepQuality: integer("sleep_quality"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
   },
@@ -97,10 +96,6 @@ export const dailies = pgTable(
     conditionRangeCheck: check(
       "daily_condition_range",
       sql`${table.condition} BETWEEN -2 AND 2`,
-    ),
-    sleepQualityRangeCheck: check(
-      "daily_sleep_quality_range",
-      sql`${table.sleepQuality} IS NULL OR ${table.sleepQuality} BETWEEN -2 AND 2`,
     ),
     memoLengthCheck: check(
       "daily_memo_length",

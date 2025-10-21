@@ -15,7 +15,6 @@ const upsertSchema = z
     condition: z.number().int().min(-2).max(2).optional(),
     sleepStart: z.string().datetime().optional().nullable(),
     sleepEnd: z.string().datetime().optional().nullable(),
-    sleepQuality: z.number().int().min(-2).max(2).optional().nullable(),
   })
   .refine(
     (value) => Object.keys(value).length > 0,
@@ -80,9 +79,6 @@ export async function PUT(request: Request, context: RouteContext) {
   const sleepEnd = parsed.data.sleepEnd !== undefined
     ? (parsed.data.sleepEnd ? new Date(parsed.data.sleepEnd) : null)
     : (existing?.sleepEnd ?? null);
-  const sleepQuality = parsed.data.sleepQuality !== undefined
-    ? parsed.data.sleepQuality
-    : (existing?.sleepQuality ?? null);
   const now = new Date();
 
   const [record] = await db
@@ -93,7 +89,6 @@ export async function PUT(request: Request, context: RouteContext) {
       condition,
       sleepStart,
       sleepEnd,
-      sleepQuality,
       createdAt: now,
       updatedAt: now,
     })
@@ -104,7 +99,6 @@ export async function PUT(request: Request, context: RouteContext) {
         condition,
         sleepStart,
         sleepEnd,
-        sleepQuality,
         updatedAt: now,
       },
     })

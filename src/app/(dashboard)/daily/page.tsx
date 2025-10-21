@@ -17,7 +17,6 @@ type DailyData = {
   condition: number;
   sleepStart: string | null;
   sleepEnd: string | null;
-  sleepQuality: number | null;
 };
 
 export default function DailyPage() {
@@ -98,7 +97,6 @@ export default function DailyPage() {
     condition: number;
     sleepStart?: string | null;
     sleepEnd?: string | null;
-    sleepQuality?: number | null;
   }) => {
     const updatedDaily = {
       date: selectedDate,
@@ -106,7 +104,6 @@ export default function DailyPage() {
       condition: data.condition,
       sleepStart: data.sleepStart ?? null,
       sleepEnd: data.sleepEnd ?? null,
-      sleepQuality: data.sleepQuality ?? null,
     };
 
     // 既存の日記があれば更新、なければ追加
@@ -239,7 +236,6 @@ export default function DailyPage() {
         initialCondition={dailies.find((d) => d.date === selectedDate)?.condition ?? 0}
         initialSleepStart={dailies.find((d) => d.date === selectedDate)?.sleepStart}
         initialSleepEnd={dailies.find((d) => d.date === selectedDate)?.sleepEnd}
-        initialSleepQuality={dailies.find((d) => d.date === selectedDate)?.sleepQuality}
       />
     </div>
   );

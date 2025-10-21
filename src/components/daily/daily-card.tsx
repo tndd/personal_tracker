@@ -19,7 +19,6 @@ interface DailyCardProps {
   condition: number;
   sleepStart?: string | null;
   sleepEnd?: string | null;
-  sleepQuality?: number | null;
   onEdit?: () => void;
 }
 
@@ -29,7 +28,6 @@ export function DailyCard({
   condition,
   sleepStart,
   sleepEnd,
-  sleepQuality,
   onEdit,
 }: DailyCardProps) {
   const config = conditionConfig[condition as keyof typeof conditionConfig];
@@ -47,9 +45,6 @@ export function DailyCard({
   };
 
   const sleepDuration = calculateSleepDuration();
-  const sleepQualityConfig = sleepQuality !== null && sleepQuality !== undefined
-    ? conditionConfig[sleepQuality as keyof typeof conditionConfig]
-    : null;
 
   return (
     <Card className="hover:shadow-md transition-shadow">
@@ -75,12 +70,6 @@ export function DailyCard({
             <span>
               睡眠: {sleepDuration.hours}時間{sleepDuration.minutes > 0 ? `${sleepDuration.minutes}分` : ""}
             </span>
-            {sleepQualityConfig && (
-              <span className="flex items-center gap-1">
-                <span className={`h-4 w-4 rounded-full ${sleepQualityConfig.bgColor}`} />
-                <span className="text-xs">{sleepQualityConfig.label}</span>
-              </span>
-            )}
           </div>
         )}
 

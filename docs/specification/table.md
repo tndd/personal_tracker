@@ -68,6 +68,5 @@
 | condition     | INTEGER     | DEFAULT 0, CHECK (condition BETWEEN -2 AND 2)                  | 1日全体のコンディション（-2~2） |
 | sleep_start   | TIMESTAMPTZ | NULLABLE                                                       | 就寝時刻                        |
 | sleep_end     | TIMESTAMPTZ | NULLABLE                                                       | 起床時刻                        |
-| sleep_quality | INTEGER     | NULLABLE, CHECK (sleep_quality IS NULL OR sleep_quality BETWEEN -2 AND 2) | 睡眠の質（-2~2）                |
 | created_at    | TIMESTAMPTZ | DEFAULT NOW()                                                  | 作成日時                        |
 | updated_at    | TIMESTAMPTZ | DEFAULT NOW()                                                  | 更新日時                        |

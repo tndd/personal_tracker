@@ -15,8 +15,7 @@ async function main() {
         condition,
         memo IS NOT NULL as has_memo,
         sleep_start IS NOT NULL as has_sleep_start,
-        sleep_end IS NOT NULL as has_sleep_end,
-        sleep_quality
+        sleep_end IS NOT NULL as has_sleep_end
       FROM daily
       ORDER BY date DESC
       LIMIT 10

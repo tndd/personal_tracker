@@ -15,6 +15,13 @@
       "when": 1760680967017,
       "tag": "0001_chunky_jigsaw",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1761042439664,
+      "tag": "0002_remove_sleep_quality",
+      "breakpoints": true
     }
   ]
 }
