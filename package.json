@@ -10,6 +10,8 @@
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "seed:stg": "tsx scripts/seed-stg.ts",
+    "stg": "bash scripts/start-stg.sh",
+    "stg:stop": "bash scripts/stop-stg.sh",
     "start:test": "next start -p 3002",
     "test:e2e": "npm run build && playwright test"
   },
