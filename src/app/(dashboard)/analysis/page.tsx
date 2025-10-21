@@ -17,6 +17,8 @@ type ConditionData = {
   counts: Record<number, number>; // 各コンディション値の出現回数
   ratios: Record<number, number>; // 各コンディション値の比率
   sleepHours: number | null; // 睡眠時間（時間単位）
+  sleepStart: string | null; // 就寝時刻
+  sleepEnd: string | null; // 起床時刻
 };
 
 // 粒度の型
@@ -493,149 +495,235 @@ export default function AnalysisPage() {
                 <div className="overflow-x-auto -mx-2 sm:mx-0">
                   <div className="relative min-w-max p-2 sm:p-4">
                     {(() => {
-                      const GRAPH_HEIGHT = 200; // グラフの高さを拡大
+                      const GRAPH_HEIGHT = 300; // グラフの高さ（24時間表示のため高くする）
+                      const BAR_WIDTH = 32; // バーの幅
+                      const GAP = 4; // バー間隔
+
+                      // 時刻を0-24の数値に変換（時間単位）
+                      const getHourOfDay = (dateStr: string | null): number | null => {
+                        if (!dateStr) return null;
+                        const date = new Date(dateStr);
+                        return date.getHours() + date.getMinutes() / 60;
+                      };
+
+                      // 睡眠時間の最大値（折れ線グラフ用）
                       const maxSleepHours = Math.max(
                         sleepBaseline * 1.5,
                         ...conditionData.map(item => item.sleepHours ?? 0)
                       );
-                      const BAR_WIDTH = 32; // バーの幅を拡大（8→32）
-                      const GAP = 4; // バー間隔
 
                       return (
-                        <div className="relative" style={{ height: `${GRAPH_HEIGHT}px` }}>
-                          {/* Y軸ラベル */}
-                          <div className="absolute left-0 top-0 bottom-0 w-10 flex flex-col justify-between text-xs text-gray-500">
-                            <span>{maxSleepHours.toFixed(0)}h</span>
-                            <span>{(maxSleepHours / 2).toFixed(0)}h</span>
-                            <span>0h</span>
+                        <div className="flex gap-8">
+                          {/* 棒グラフ（時間帯表示） */}
+                          <div className="flex-1">
+                            <h4 className="text-xs font-medium text-gray-700 mb-2">睡眠時間帯</h4>
+                            <div className="relative" style={{ height: `${GRAPH_HEIGHT}px` }}>
+                              {/* Y軸ラベル（24時間） */}
+                              <div className="absolute left-0 top-0 bottom-0 w-10 flex flex-col justify-between text-xs text-gray-500">
+                                <span>0時</span>
+                                <span>6時</span>
+                                <span>12時</span>
+                                <span>18時</span>
+                                <span>24時</span>
+                              </div>
+
+                              {/* グラフエリア */}
+                              <div className="ml-12 relative" style={{ height: `${GRAPH_HEIGHT}px` }}>
+                                {/* 時間ガイドライン */}
+                                {[0, 6, 12, 18, 24].map(hour => (
+                                  <div
+                                    key={`guide-${hour}`}
+                                    className="absolute w-full border-t border-gray-200"
+                                    style={{
+                                      bottom: `${(hour / 24) * GRAPH_HEIGHT}px`
+                                    }}
+                                  />
+                                ))}
+
+                                {/* バーグラフ */}
+                                <div className="flex items-end relative" style={{ height: `${GRAPH_HEIGHT}px`, gap: `${GAP}px` }}>
+                                  {conditionData.map((item) => {
+                                    const sleepStart = item.sleepStart;
+                                    const sleepEnd = item.sleepEnd;
+
+                                    if (!sleepStart || !sleepEnd) {
+                                      return (
+                                        <div
+                                          key={`${item.slotIndex}-sleep-bar`}
+                                          style={{ width: `${BAR_WIDTH}px`, height: `${GRAPH_HEIGHT}px` }}
+                                        />
+                                      );
+                                    }
+
+                                    const startHour = getHourOfDay(sleepStart);
+                                    const endHour = getHourOfDay(sleepEnd);
+
+                                    if (startHour === null || endHour === null) {
+                                      return (
+                                        <div
+                                          key={`${item.slotIndex}-sleep-bar`}
+                                          style={{ width: `${BAR_WIDTH}px`, height: `${GRAPH_HEIGHT}px` }}
+                                        />
+                                      );
+                                    }
+
+                                    // 就寝時刻が起床時刻より遅い場合（日をまたぐ場合）の処理
+                                    let adjustedStartHour = startHour;
+                                    let adjustedEndHour = endHour;
+
+                                    if (startHour > endHour) {
+                                      // 就寝時刻を前日として扱う（マイナスにする）
+                                      adjustedStartHour = startHour - 24;
+                                    }
+
+                                    // バーの位置とサイズを計算
+                                    const barBottom = Math.max(0, (adjustedStartHour / 24) * GRAPH_HEIGHT);
+                                    const barTop = (adjustedEndHour / 24) * GRAPH_HEIGHT;
+                                    const barHeight = Math.max(0, barTop - barBottom);
+
+                                    return (
+                                      <div
+                                        key={`${item.slotIndex}-sleep-bar`}
+                                        className="relative"
+                                        style={{ width: `${BAR_WIDTH}px`, height: `${GRAPH_HEIGHT}px` }}
+                                      >
+                                        <div
+                                          className="bg-indigo-400 rounded"
+                                          style={{
+                                            position: "absolute",
+                                            bottom: `${barBottom}px`,
+                                            height: `${barHeight}px`,
+                                            width: "100%",
+                                          }}
+                                          title={`${new Date(sleepStart).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })} - ${new Date(sleepEnd).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}`}
+                                        />
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+
+                              {/* X軸ラベル */}
+                              <div className="ml-12 flex mt-2" style={{ gap: `${GAP}px` }}>
+                                {conditionData.map((item, index) => (
+                                  <div
+                                    key={`${item.slotIndex}-time-label`}
+                                    className="flex flex-col items-center"
+                                    style={{ width: `${BAR_WIDTH}px` }}
+                                  >
+                                    {index % 2 === 0 && (
+                                      <span className="text-xs text-gray-600">
+                                        {getSlotLabel(item)}
+                                      </span>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
                           </div>
 
-                          {/* グラフエリア */}
-                          <div className="ml-12 relative" style={{ height: `${GRAPH_HEIGHT}px` }}>
-                            {/* 基準ライン */}
-                            <div
-                              className="absolute w-full border-t-2 border-dashed border-gray-400"
-                              style={{
-                                bottom: `${(sleepBaseline / maxSleepHours) * GRAPH_HEIGHT}px`
-                              }}
-                            >
-                              <span className="absolute -top-4 left-0 text-xs font-medium text-gray-600 bg-white px-1">
-                                基準: {sleepBaseline}h
-                              </span>
-                            </div>
+                          {/* 折れ線グラフ（睡眠時間） */}
+                          <div className="flex-1">
+                            <h4 className="text-xs font-medium text-gray-700 mb-2">睡眠時間</h4>
+                            <div className="relative" style={{ height: `${GRAPH_HEIGHT}px` }}>
+                              {/* Y軸ラベル */}
+                              <div className="absolute left-0 top-0 bottom-0 w-10 flex flex-col justify-between text-xs text-gray-500">
+                                <span>{maxSleepHours.toFixed(0)}h</span>
+                                <span>{(maxSleepHours / 2).toFixed(0)}h</span>
+                                <span>0h</span>
+                              </div>
 
-                            {/* バーと折れ線 */}
-                            <div className={`flex gap-[${GAP}px] items-end relative`} style={{ height: `${GRAPH_HEIGHT}px`, gap: `${GAP}px` }}>
-                              {/* バーグラフ */}
-                              {conditionData.map((item) => {
-                                const sleepHours = item.sleepHours ?? null;
-                                if (sleepHours === null) {
-                                  return (
-                                    <div
-                                      key={`${item.slotIndex}-sleep-bar`}
-                                      style={{ width: `${BAR_WIDTH}px`, height: `${GRAPH_HEIGHT}px` }}
-                                    />
-                                  );
-                                }
+                              {/* グラフエリア */}
+                              <div className="ml-12 relative" style={{ height: `${GRAPH_HEIGHT}px` }}>
+                                {/* 基準ライン */}
+                                <div
+                                  className="absolute w-full border-t-2 border-dashed border-gray-400"
+                                  style={{
+                                    bottom: `${(sleepBaseline / maxSleepHours) * GRAPH_HEIGHT}px`
+                                  }}
+                                >
+                                  <span className="absolute -top-4 left-0 text-xs font-medium text-gray-600 bg-white px-1">
+                                    基準: {sleepBaseline}h
+                                  </span>
+                                </div>
 
-                                const diff = sleepHours - sleepBaseline;
-                                const isAbove = diff >= 0;
-                                const barHeight = Math.abs(diff / maxSleepHours) * GRAPH_HEIGHT;
-                                const baselinePosition = (sleepBaseline / maxSleepHours) * GRAPH_HEIGHT;
-
-                                return (
-                                  <div
-                                    key={`${item.slotIndex}-sleep-bar`}
-                                    className="relative"
-                                    style={{ width: `${BAR_WIDTH}px`, height: `${GRAPH_HEIGHT}px` }}
+                                {/* 折れ線グラフ */}
+                                <div className="relative" style={{ height: `${GRAPH_HEIGHT}px` }}>
+                                  <svg
+                                    className="absolute top-0 left-0 pointer-events-none"
+                                    style={{
+                                      width: `${conditionData.length * (BAR_WIDTH + GAP)}px`,
+                                      height: `${GRAPH_HEIGHT}px`
+                                    }}
                                   >
-                                    <div
-                                      className={`${isAbove ? "bg-blue-400" : "bg-blue-300"} rounded-t`}
-                                      style={{
-                                        position: "absolute",
-                                        bottom: isAbove ? `${baselinePosition}px` : `${baselinePosition - barHeight}px`,
-                                        height: `${barHeight}px`,
-                                        width: "100%",
-                                      }}
-                                      title={`${sleepHours.toFixed(1)}時間`}
-                                    />
+                                    {/* 線 */}
+                                    {conditionData.map((item, index) => {
+                                      const sleepHours = item.sleepHours;
+                                      if (sleepHours === null) return null;
+
+                                      const nextItem = conditionData[index + 1];
+                                      if (!nextItem || nextItem.sleepHours === null) return null;
+
+                                      const x1 = index * (BAR_WIDTH + GAP) + BAR_WIDTH / 2;
+                                      const y1 = GRAPH_HEIGHT - (sleepHours / maxSleepHours) * GRAPH_HEIGHT;
+                                      const x2 = (index + 1) * (BAR_WIDTH + GAP) + BAR_WIDTH / 2;
+                                      const y2 = GRAPH_HEIGHT - (nextItem.sleepHours / maxSleepHours) * GRAPH_HEIGHT;
+
+                                      return (
+                                        <line
+                                          key={`${item.slotIndex}-sleep-line`}
+                                          x1={x1}
+                                          y1={y1}
+                                          x2={x2}
+                                          y2={y2}
+                                          stroke="#3b82f6"
+                                          strokeWidth="2.5"
+                                        />
+                                      );
+                                    })}
+                                    {/* 点 */}
+                                    {conditionData.map((item, index) => {
+                                      const sleepHours = item.sleepHours;
+                                      if (sleepHours === null) return null;
+
+                                      const x = index * (BAR_WIDTH + GAP) + BAR_WIDTH / 2;
+                                      const y = GRAPH_HEIGHT - (sleepHours / maxSleepHours) * GRAPH_HEIGHT;
+
+                                      return (
+                                        <circle
+                                          key={`${item.slotIndex}-sleep-point`}
+                                          cx={x}
+                                          cy={y}
+                                          r="4"
+                                          fill="#3b82f6"
+                                        />
+                                      );
+                                    })}
+                                  </svg>
+                                </div>
+                              </div>
+
+                              {/* X軸ラベル */}
+                              <div className="ml-12 flex mt-2" style={{ gap: `${GAP}px` }}>
+                                {conditionData.map((item, index) => (
+                                  <div
+                                    key={`${item.slotIndex}-duration-label`}
+                                    className="flex flex-col items-center"
+                                    style={{ width: `${BAR_WIDTH}px` }}
+                                  >
+                                    {index % 2 === 0 && (
+                                      <span className="text-xs text-gray-600">
+                                        {getSlotLabel(item)}
+                                      </span>
+                                    )}
                                   </div>
-                                );
-                              })}
-
-                              {/* 折れ線グラフ */}
-                              <svg
-                                className="absolute top-0 left-0 pointer-events-none"
-                                style={{
-                                  width: `${conditionData.length * (BAR_WIDTH + GAP)}px`,
-                                  height: `${GRAPH_HEIGHT}px`
-                                }}
-                              >
-                                {conditionData.map((item, index) => {
-                                  const sleepHours = item.sleepHours;
-                                  if (sleepHours === null) return null;
-
-                                  const nextItem = conditionData[index + 1];
-                                  if (!nextItem || nextItem.sleepHours === null) return null;
-
-                                  const x1 = index * (BAR_WIDTH + GAP) + BAR_WIDTH / 2;
-                                  const y1 = GRAPH_HEIGHT - (sleepHours / maxSleepHours) * GRAPH_HEIGHT;
-                                  const x2 = (index + 1) * (BAR_WIDTH + GAP) + BAR_WIDTH / 2;
-                                  const y2 = GRAPH_HEIGHT - (nextItem.sleepHours / maxSleepHours) * GRAPH_HEIGHT;
-
-                                  return (
-                                    <line
-                                      key={`${item.slotIndex}-sleep-line`}
-                                      x1={x1}
-                                      y1={y1}
-                                      x2={x2}
-                                      y2={y2}
-                                      stroke="#3b82f6"
-                                      strokeWidth="2.5"
-                                    />
-                                  );
-                                })}
-                                {/* 点 */}
-                                {conditionData.map((item, index) => {
-                                  const sleepHours = item.sleepHours;
-                                  if (sleepHours === null) return null;
-
-                                  const x = index * (BAR_WIDTH + GAP) + BAR_WIDTH / 2;
-                                  const y = GRAPH_HEIGHT - (sleepHours / maxSleepHours) * GRAPH_HEIGHT;
-
-                                  return (
-                                    <circle
-                                      key={`${item.slotIndex}-sleep-point`}
-                                      cx={x}
-                                      cy={y}
-                                      r="4"
-                                      fill="#3b82f6"
-                                    />
-                                  );
-                                })}
-                              </svg>
+                                ))}
+                              </div>
                             </div>
                           </div>
                         </div>
                       );
                     })()}
-
-                    {/* X軸ラベル */}
-                    <div className="ml-12 flex gap-1 mt-2" style={{ gap: "4px" }}>
-                      {conditionData.map((item, index) => (
-                        <div
-                          key={`${item.slotIndex}-sleep-label`}
-                          className="flex flex-col items-center"
-                          style={{ width: "32px" }}
-                        >
-                          {index % 2 === 0 && (
-                            <span className="text-xs text-gray-600">
-                              {getSlotLabel(item)}
-                            </span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
                   </div>
                 </div>
               </div>

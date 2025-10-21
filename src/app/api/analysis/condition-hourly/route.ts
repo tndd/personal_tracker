@@ -171,7 +171,12 @@ export async function GET(request: Request) {
   }
 
   // 睡眠データをスロットにマッピング
-  const sleepMap = new Map<number, { totalHours: number; count: number }>();
+  const sleepMap = new Map<number, {
+    totalHours: number;
+    count: number;
+    sleepStarts: Date[];
+    sleepEnds: Date[];
+  }>();
 
   for (const item of sleepData) {
     if (!item.sleepStart || !item.sleepEnd) continue;
@@ -187,10 +192,14 @@ export async function GET(request: Request) {
     if (existing) {
       existing.totalHours += sleepHours;
       existing.count += 1;
+      existing.sleepStarts.push(new Date(item.sleepStart));
+      existing.sleepEnds.push(new Date(item.sleepEnd));
     } else {
       sleepMap.set(slotIndex, {
         totalHours: sleepHours,
         count: 1,
+        sleepStarts: [new Date(item.sleepStart)],
+        sleepEnds: [new Date(item.sleepEnd)],
       });
     }
   }
@@ -221,6 +230,18 @@ export async function GET(request: Request) {
     // 睡眠時間の平均を計算（粒度が日単位以上の場合は平均を取る）
     const avgSleepHours = sleep && sleep.count > 0 ? sleep.totalHours / sleep.count : null;
 
+    // 就寝時刻と起床時刻の平均を計算
+    let avgSleepStart: string | null = null;
+    let avgSleepEnd: string | null = null;
+
+    if (sleep && sleep.count > 0) {
+      // 複数ある場合は平均時刻を計算
+      const avgStartTime = sleep.sleepStarts.reduce((sum, d) => sum + d.getTime(), 0) / sleep.count;
+      const avgEndTime = sleep.sleepEnds.reduce((sum, d) => sum + d.getTime(), 0) / sleep.count;
+      avgSleepStart = new Date(avgStartTime).toISOString();
+      avgSleepEnd = new Date(avgEndTime).toISOString();
+    }
+
     result.push({
       slotIndex: i,
       startTime: slotStart.toISOString(),
@@ -231,6 +252,8 @@ export async function GET(request: Request) {
       counts: totalCount > 0 ? counts : {},
       ratios: totalCount > 0 ? ratios : {},
       sleepHours: avgSleepHours,
+      sleepStart: avgSleepStart,
+      sleepEnd: avgSleepEnd,
     });
   }
 
