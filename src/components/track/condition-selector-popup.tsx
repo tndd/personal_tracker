@@ -52,6 +52,7 @@ export function ConditionSelectorPopup({
                     ? "bg-blue-50 border border-blue-200"
                     : "hover:bg-gray-100"
                 }`}
+                aria-label={`コンディション: ${option.label}`}
               >
                 <span className={`h-6 w-6 rounded-full ${option.bgColor}`} />
                 <div className="flex-1">

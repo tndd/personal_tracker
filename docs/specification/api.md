@@ -346,24 +346,71 @@
   - `400`: パラメータ不正
 
 ### GET `/api/analysis/tag-correlation`
-- 説明: トラックとタグの出現頻度および平均コンディションを算出
-- クエリ: `from` / `to` (optional, YYYY-MM-DD。未指定時は直近30日)
+- 説明: トラックに紐付いたタグが指定粒度で先行日数分の `daily.condition` に与える影響度を、ベイズ推定で算出し返却する
+- クエリ:
+  - `from` / `to` (optional, YYYY-MM-DD。未指定時は直近30日)
+  - `granularity` (optional, `"1d" | "1w" | "1m"`。未指定時は `"1d"`) — 参照する先行日数セットを切り替える
 - レスポンス 200:
   ```json
   {
-    "items": [
+    "positive": [
       {
-        "tagId": "tag-1",
-        "tagName": "頭痛",
-        "usageCount": 2,
-        "averageCondition": -1.0
+        "tagId": "tag-2",
+        "tagName": "睡眠十分",
+        "occurrenceCount": 3,
+        "observationCount": 7,
+        "effectiveSampleSize": 4.2,
+        "totalWeight": 4.84,
+        "rawMean": 1.75,
+        "baselineMean": 0.42,
+        "rawContribution": 1.33,
+        "contribution": 0.58,
+        "confidence": 0.76,
+        "probabilitySameSign": 0.88,
+        "credibleInterval": {
+          "lower": -0.01,
+          "upper": 1.17
+        }
       }
-    ]
+    ],
+    "negative": [
+      {
+        "tagId": "tag-4",
+        "tagName": "夜更かし",
+        "occurrenceCount": 2,
+        "observationCount": 4,
+        "effectiveSampleSize": 2.1,
+        "totalWeight": 3.17,
+        "rawMean": -1.20,
+        "baselineMean": 0.42,
+        "rawContribution": -1.62,
+        "contribution": -0.49,
+        "confidence": 0.64,
+        "probabilitySameSign": 0.82,
+        "credibleInterval": {
+          "lower": -1.04,
+          "upper": 0.06
+        }
+      }
+    ],
+    "metadata": {
+      "lagWeights": [1.0, 0.67, 0.5],
+      "lagDays": [1, 2, 3],
+      "granularity": "1d",
+      "baselineMean": 0.42,
+      "priorMean": 0,
+      "priorWeight": 5,
+      "priorVariance": 1
+    }
   }
   ```
 - 備考:
-  - `averageCondition` が算出不能な場合は `null`
-  - 集計対象は `tracks.created_at` が `from`〜`to` であるデータ
+  - `occurrenceCount` は期間中に該当タグを含んだトラック件数、`observationCount` は翌日〜3日後で取得できた `daily` の有効データ件数
+  - `rawMean` はタグ出現時の重み付き平均値、`baselineMean` は全タグ横断の重み付き平均値
+  - `rawContribution` はベースラインとの差分、`contribution` はベイズ調整後の寄与度
+  - `confidence` は 0〜1 のスケールに正規化した信頼指標、`probabilitySameSign` は効果の符号が維持される事後確率 (0.5〜1.0)
+  - `credibleInterval` は 95% 信用区間
+  - 集計対象は `track.created_at` が `from`〜`to` のデータで、粒度ごとのラグ日数（`1d`: 翌日・翌々日・3日後、`1w`: 7/14/21日後、`1m`: 30/60/90日後）に存在する `daily` レコードのみを参照。`metadata.lagDays` に実際の参照日数を返却する
 - エラー:
   - `400`: パラメータ不正
 

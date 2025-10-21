@@ -63,7 +63,7 @@ test.describe("トラックカードの編集", () => {
     await tagButton.click();
 
     await dialog.getByRole("button", { name: "コンディションを選択" }).click();
-    await page.getByRole("button", { name: /-1/ }).click();
+    await dialog.getByRole("button", { name: "コンディション: -1" }).click();
 
     await dialog.getByRole("button", { name: "保存" }).click();
     await expect(dialog).toBeHidden();
