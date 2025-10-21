@@ -156,8 +156,8 @@ export default function AnalysisPage() {
   const [lagWeight1, setLagWeight1] = useState(0.67);
   const [lagWeight2, setLagWeight2] = useState(0.5);
 
-  // 睡眠基準値のstate
-  const [sleepBaseline, setSleepBaseline] = useState(7);
+  // 睡眠中心時刻のstate（デフォルト: 3時 = 深夜3時を中心とする）
+  const [sleepCenterHour, setSleepCenterHour] = useState(3);
 
   // デフォルト期間（粒度の16区間分）
   const defaultPeriod = calculateDefaultPeriod(granularity);
@@ -466,20 +466,20 @@ export default function AnalysisPage() {
             <CardTitle>睡眠分析</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* 睡眠基準値設定 */}
+            {/* 睡眠中心時刻設定 */}
             <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-              <label className="text-sm font-medium text-gray-700">睡眠基準:</label>
+              <label className="text-sm font-medium text-gray-700">中心時刻:</label>
               <div className="flex items-center gap-2">
                 <Input
                   type="number"
-                  step="0.5"
+                  step="1"
                   min="0"
-                  max="24"
-                  value={sleepBaseline}
-                  onChange={(e) => setSleepBaseline(Number(e.target.value))}
+                  max="23"
+                  value={sleepCenterHour}
+                  onChange={(e) => setSleepCenterHour(Number(e.target.value))}
                   className="w-20 text-sm"
                 />
-                <span className="text-sm text-gray-600">時間</span>
+                <span className="text-sm text-gray-600">時</span>
               </div>
             </div>
 
@@ -508,40 +508,59 @@ export default function AnalysisPage() {
 
                       // 睡眠時間の最大値（折れ線グラフ用）
                       const maxSleepHours = Math.max(
-                        sleepBaseline * 1.5,
+                        10, // 最低10時間のスケール
                         ...conditionData.map(item => item.sleepHours ?? 0)
                       );
 
                       return (
-                        <div className="flex gap-8">
-                          {/* 棒グラフ（時間帯表示） */}
+                        <div>
+                          {/* 統合グラフ（時間帯表示 + 睡眠時間） */}
                           <div className="flex-1">
-                            <h4 className="text-xs font-medium text-gray-700 mb-2">睡眠時間帯</h4>
+                            <h4 className="text-xs font-medium text-gray-700 mb-2">睡眠分析（中心時刻: {sleepCenterHour}時）</h4>
                             <div className="relative" style={{ height: `${GRAPH_HEIGHT}px` }}>
-                              {/* Y軸ラベル（24時間） */}
-                              <div className="absolute left-0 top-0 bottom-0 w-10 flex flex-col justify-between text-xs text-gray-500">
-                                <span>0時</span>
-                                <span>6時</span>
-                                <span>12時</span>
-                                <span>18時</span>
-                                <span>24時</span>
+                              {/* Y軸ラベル（中心時刻を基準に上下12時間） */}
+                              <div className="absolute left-0 top-0 bottom-0 w-16 flex flex-col justify-between text-xs text-gray-500">
+                                {[sleepCenterHour - 12, sleepCenterHour - 6, sleepCenterHour, sleepCenterHour + 6, sleepCenterHour + 12].map((hour, idx) => {
+                                  const displayHour = ((hour % 24) + 24) % 24;
+                                  return <span key={idx}>{displayHour}時</span>;
+                                })}
+                              </div>
+
+                              {/* 右側Y軸ラベル（睡眠時間） */}
+                              <div className="absolute right-0 top-0 bottom-0 w-10 flex flex-col justify-between text-xs text-blue-600">
+                                <span>{maxSleepHours.toFixed(0)}h</span>
+                                <span>{(maxSleepHours / 2).toFixed(0)}h</span>
+                                <span>0h</span>
                               </div>
 
                               {/* グラフエリア */}
-                              <div className="ml-12 relative" style={{ height: `${GRAPH_HEIGHT}px` }}>
+                              <div className="ml-20 mr-12 relative" style={{ height: `${GRAPH_HEIGHT}px` }}>
                                 {/* 時間ガイドライン */}
-                                {[0, 6, 12, 18, 24].map(hour => (
+                                {[0, 0.25, 0.5, 0.75, 1].map((ratio, idx) => (
                                   <div
-                                    key={`guide-${hour}`}
+                                    key={`guide-${idx}`}
                                     className="absolute w-full border-t border-gray-200"
                                     style={{
-                                      bottom: `${(hour / 24) * GRAPH_HEIGHT}px`
+                                      bottom: `${ratio * GRAPH_HEIGHT}px`
                                     }}
                                   />
                                 ))}
 
-                                {/* バーグラフ */}
-                                <div className="flex items-end relative" style={{ height: `${GRAPH_HEIGHT}px`, gap: `${GAP}px` }}>
+                                {/* 中心ライン（強調） */}
+                                <div
+                                  className="absolute w-full border-t-2 border-dashed border-gray-400"
+                                  style={{
+                                    bottom: `${GRAPH_HEIGHT / 2}px`
+                                  }}
+                                >
+                                  <span className="absolute -top-4 left-0 text-xs font-medium text-gray-600 bg-white px-1">
+                                    中心: {sleepCenterHour}時
+                                  </span>
+                                </div>
+
+                                {/* バーグラフと折れ線グラフ */}
+                                <div className="flex relative" style={{ height: `${GRAPH_HEIGHT}px`, gap: `${GAP}px` }}>
+                                  {/* バーグラフ */}
                                   {conditionData.map((item) => {
                                     const sleepStart = item.sleepStart;
                                     const sleepEnd = item.sleepEnd;
@@ -567,18 +586,24 @@ export default function AnalysisPage() {
                                       );
                                     }
 
-                                    // 就寝時刻が起床時刻より遅い場合（日をまたぐ場合）の処理
-                                    let adjustedStartHour = startHour;
-                                    let adjustedEndHour = endHour;
+                                    // 中心時刻を基準とした相対時間に変換
+                                    let relativeStart = startHour - sleepCenterHour;
+                                    let relativeEnd = endHour - sleepCenterHour;
 
-                                    if (startHour > endHour) {
-                                      // 就寝時刻を前日として扱う（マイナスにする）
-                                      adjustedStartHour = startHour - 24;
+                                    // -12 〜 +12 の範囲に正規化
+                                    if (relativeStart > 12) relativeStart -= 24;
+                                    if (relativeStart < -12) relativeStart += 24;
+                                    if (relativeEnd > 12) relativeEnd -= 24;
+                                    if (relativeEnd < -12) relativeEnd += 24;
+
+                                    // 就寝時刻が起床時刻より後の場合（日をまたぐ）
+                                    if (relativeStart > relativeEnd) {
+                                      relativeEnd += 24;
                                     }
 
-                                    // バーの位置とサイズを計算
-                                    const barBottom = Math.max(0, (adjustedStartHour / 24) * GRAPH_HEIGHT);
-                                    const barTop = (adjustedEndHour / 24) * GRAPH_HEIGHT;
+                                    // グラフ上の位置を計算（-12〜+12 を 0〜GRAPH_HEIGHT にマッピング）
+                                    const barBottom = ((relativeStart + 12) / 24) * GRAPH_HEIGHT;
+                                    const barTop = ((relativeEnd + 12) / 24) * GRAPH_HEIGHT;
                                     const barHeight = Math.max(0, barTop - barBottom);
 
                                     return (
@@ -588,7 +613,7 @@ export default function AnalysisPage() {
                                         style={{ width: `${BAR_WIDTH}px`, height: `${GRAPH_HEIGHT}px` }}
                                       >
                                         <div
-                                          className="bg-indigo-400 rounded"
+                                          className="bg-indigo-400 rounded opacity-60"
                                           style={{
                                             position: "absolute",
                                             bottom: `${barBottom}px`,
@@ -600,55 +625,8 @@ export default function AnalysisPage() {
                                       </div>
                                     );
                                   })}
-                                </div>
-                              </div>
 
-                              {/* X軸ラベル */}
-                              <div className="ml-12 flex mt-2" style={{ gap: `${GAP}px` }}>
-                                {conditionData.map((item, index) => (
-                                  <div
-                                    key={`${item.slotIndex}-time-label`}
-                                    className="flex flex-col items-center"
-                                    style={{ width: `${BAR_WIDTH}px` }}
-                                  >
-                                    {index % 2 === 0 && (
-                                      <span className="text-xs text-gray-600">
-                                        {getSlotLabel(item)}
-                                      </span>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* 折れ線グラフ（睡眠時間） */}
-                          <div className="flex-1">
-                            <h4 className="text-xs font-medium text-gray-700 mb-2">睡眠時間</h4>
-                            <div className="relative" style={{ height: `${GRAPH_HEIGHT}px` }}>
-                              {/* Y軸ラベル */}
-                              <div className="absolute left-0 top-0 bottom-0 w-10 flex flex-col justify-between text-xs text-gray-500">
-                                <span>{maxSleepHours.toFixed(0)}h</span>
-                                <span>{(maxSleepHours / 2).toFixed(0)}h</span>
-                                <span>0h</span>
-                              </div>
-
-                              {/* グラフエリア */}
-                              <div className="ml-12 relative" style={{ height: `${GRAPH_HEIGHT}px` }}>
-                                {/* 基準ライン */}
-                                <div
-                                  className="absolute w-full border-t-2 border-dashed border-gray-400"
-                                  style={{
-                                    bottom: `${(sleepBaseline / maxSleepHours) * GRAPH_HEIGHT}px`
-                                  }}
-                                >
-                                  <span className="absolute -top-4 left-0 text-xs font-medium text-gray-600 bg-white px-1">
-                                    基準: {sleepBaseline}h
-                                  </span>
-                                </div>
-
-                                {/* 折れ線グラフ */}
-                                <div className="relative" style={{ height: `${GRAPH_HEIGHT}px` }}>
+                                  {/* 折れ線グラフ（睡眠時間） */}
                                   <svg
                                     className="absolute top-0 left-0 pointer-events-none"
                                     style={{
@@ -704,10 +682,10 @@ export default function AnalysisPage() {
                               </div>
 
                               {/* X軸ラベル */}
-                              <div className="ml-12 flex mt-2" style={{ gap: `${GAP}px` }}>
+                              <div className="ml-20 mr-12 flex mt-2" style={{ gap: `${GAP}px` }}>
                                 {conditionData.map((item, index) => (
                                   <div
-                                    key={`${item.slotIndex}-duration-label`}
+                                    key={`${item.slotIndex}-label`}
                                     className="flex flex-col items-center"
                                     style={{ width: `${BAR_WIDTH}px` }}
                                   >
