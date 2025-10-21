@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import { AnalysisSidebarContent, AnalysisView } from "@/components/analysis/analysis-sidebar-content";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { useSidebarContent } from "@/contexts/sidebar-content-context";
 
 // 集計データの型
 type ConditionData = {
@@ -113,7 +115,24 @@ function calculateDefaultPeriod(granularity: Granularity): { from: string; to: s
   return { from, to };
 }
 
+const VIEW_METADATA: Record<AnalysisView, { title: string; description: string }> = {
+  dashboard: {
+    title: "Dashboard",
+    description: "分析全体を俯瞰し、主要な指標をまとめて確認します。",
+  },
+  condition: {
+    title: "コンディション推移",
+    description: "コンディションの時系列変化と分布を可視化します。",
+  },
+  tag: {
+    title: "タグ相関",
+    description: "タグごとの寄与度と信頼度を確認します。",
+  },
+};
+
 export default function AnalysisPage() {
+  const { setSidebarContent } = useSidebarContent();
+  const [selectedView, setSelectedView] = useState<AnalysisView>("dashboard");
   const [granularity, setGranularity] = useState<Granularity>("1d");
   const [conditionData, setConditionData] = useState<ConditionData[]>([]);
   const [tagCorrelation, setTagCorrelation] = useState<TagCorrelationResponse | null>(null);
@@ -134,6 +153,19 @@ export default function AnalysisPage() {
   const defaultPeriod = calculateDefaultPeriod(granularity);
   const [fromDate, setFromDate] = useState(defaultPeriod.from);
   const [toDate, setToDate] = useState(defaultPeriod.to);
+
+  useEffect(() => {
+    setSidebarContent(
+      <AnalysisSidebarContent
+        selectedView={selectedView}
+        onSelect={setSelectedView}
+      />
+    );
+
+    return () => {
+      setSidebarContent(null);
+    };
+  }, [selectedView, setSidebarContent]);
 
   // 粒度が変更されたら期間をリセット
   useEffect(() => {
@@ -228,23 +260,30 @@ export default function AnalysisPage() {
 
   const displayGranularity = tagCorrelation?.metadata.granularity ?? granularity;
   const displayGranularityLabel = formatGranularityLabel(displayGranularity);
+  const activeViewMeta = VIEW_METADATA[selectedView];
+  const showConditionSection =
+    selectedView === "dashboard" || selectedView === "condition";
+  const showTagSection = selectedView === "dashboard" || selectedView === "tag";
 
   return (
     <div className="mx-auto max-w-5xl space-y-4 sm:space-y-6">
       {/* ヘッダー */}
       <div>
-        <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">Analysis</h1>
-        <p className="mt-1 text-sm text-gray-500">健康データの分析</p>
+        <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">
+          {activeViewMeta.title}
+        </h1>
+        <p className="mt-1 text-sm text-gray-500">{activeViewMeta.description}</p>
       </div>
 
       {/* コンディション推移 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>コンディション推移</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* 粒度と期間の選択 */}
-          <div className="space-y-3">
+      {showConditionSection && (
+        <Card>
+          <CardHeader>
+            <CardTitle>コンディション推移</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* 粒度と期間の選択 */}
+            <div className="space-y-3">
             {/* 粒度選択 */}
             <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
               <label className="text-sm font-medium text-gray-700">粒度:</label>
@@ -286,8 +325,8 @@ export default function AnalysisPage() {
             </div>
           </div>
 
-          {/* グラフ表示エリア */}
-          {loading ? (
+            {/* グラフ表示エリア */}
+            {loading ? (
             <div className="text-center py-8 text-gray-500">読み込み中...</div>
           ) : conditionData.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
@@ -404,93 +443,95 @@ export default function AnalysisPage() {
               </div>
             </div>
           )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
-      {/* タグとコンディションの相関 */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-          <CardTitle>
-            タグとコンディションの相関（{displayGranularityLabel}の寄与度）
-          </CardTitle>
-          {!tagLoading && tagCorrelation && (
-            <div className="relative" ref={metadataRef}>
-              <button
-                onClick={() => setShowMetadata(!showMetadata)}
-                className="text-xs px-2 py-1 rounded-md border border-gray-300 hover:bg-gray-50 transition-colors"
-              >
-                前提条件
-              </button>
-              {showMetadata && (
-                <div className="absolute right-0 top-full mt-2 w-96 p-4 bg-white border border-gray-200 rounded-md shadow-lg z-10 text-xs space-y-4">
-                  <div>
-                    <div className="font-semibold text-gray-700 mb-2">基準平均（全タグ加重平均）</div>
-                    <div className="text-gray-600">{tagCorrelation.metadata.baselineMean.toFixed(2)}</div>
-                  </div>
+      {/* タグ相関 */}
+      {showTagSection && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+            <CardTitle>
+              タグ相関（{displayGranularityLabel}の寄与度）
+            </CardTitle>
+            {!tagLoading && tagCorrelation && (
+              <div className="relative" ref={metadataRef}>
+                <button
+                  onClick={() => setShowMetadata(!showMetadata)}
+                  className="text-xs px-2 py-1 rounded-md border border-gray-300 hover:bg-gray-50 transition-colors"
+                >
+                  前提条件
+                </button>
+                {showMetadata && (
+                  <div className="absolute right-0 top-full mt-2 w-96 p-4 bg-white border border-gray-200 rounded-md shadow-lg z-10 text-xs space-y-4">
+                    <div>
+                      <div className="font-semibold text-gray-700 mb-2">基準平均（全タグ加重平均）</div>
+                      <div className="text-gray-600">{tagCorrelation.metadata.baselineMean.toFixed(2)}</div>
+                    </div>
 
-                  <div className="border-t pt-3">
-                    <div className="font-semibold text-gray-700 mb-3">事前分布パラメータ</div>
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <label className="w-32 text-gray-600">事前平均:</label>
-                        <Input
-                          type="number"
-                          step="0.1"
-                          value={priorMean}
-                          onChange={(e) => setPriorMean(Number(e.target.value))}
-                          className="flex-1 h-7 text-xs"
-                        />
+                    <div className="border-t pt-3">
+                      <div className="font-semibold text-gray-700 mb-3">事前分布パラメータ</div>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <label className="w-32 text-gray-600">事前平均:</label>
+                          <Input
+                            type="number"
+                            step="0.1"
+                            value={priorMean}
+                            onChange={(e) => setPriorMean(Number(e.target.value))}
+                            className="flex-1 h-7 text-xs"
+                          />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <label className="w-32 text-gray-600">仮想サンプル数:</label>
+                          <Input
+                            type="number"
+                            step="1"
+                            min="1"
+                            value={priorWeight}
+                            onChange={(e) => setPriorWeight(Number(e.target.value))}
+                            className="flex-1 h-7 text-xs"
+                          />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <label className="w-32 text-gray-600">事前分散:</label>
+                          <Input
+                            type="number"
+                            step="0.1"
+                            min="0.1"
+                            value={priorVariance}
+                            onChange={(e) => setPriorVariance(Number(e.target.value))}
+                            className="flex-1 h-7 text-xs"
+                          />
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <label className="w-32 text-gray-600">仮想サンプル数:</label>
-                        <Input
-                          type="number"
-                          step="1"
-                          min="1"
-                          value={priorWeight}
-                          onChange={(e) => setPriorWeight(Number(e.target.value))}
-                          className="flex-1 h-7 text-xs"
-                        />
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <label className="w-32 text-gray-600">事前分散:</label>
-                        <Input
-                          type="number"
-                          step="0.1"
-                          min="0.1"
-                          value={priorVariance}
-                          onChange={(e) => setPriorVariance(Number(e.target.value))}
-                          className="flex-1 h-7 text-xs"
-                        />
+                    </div>
+
+                    <div className="border-t pt-3">
+                      <div className="font-semibold text-gray-700 mb-3">ラグ重み</div>
+                      <div className="space-y-2">
+                        {tagCorrelation.metadata.lagDays.map((day, index) => {
+                          const weights = [lagWeight0, lagWeight1, lagWeight2];
+                          const setters = [setLagWeight0, setLagWeight1, setLagWeight2];
+                          return (
+                            <div key={`${day}-${index}`} className="flex items-center gap-2">
+                              <label className="w-32 text-gray-600">{formatLagDescription(day)}:</label>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                max="1"
+                                value={weights[index]}
+                                onChange={(e) => setters[index](Number(e.target.value))}
+                                className="flex-1 h-7 text-xs"
+                              />
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   </div>
-
-                  <div className="border-t pt-3">
-                    <div className="font-semibold text-gray-700 mb-3">ラグ重み</div>
-                    <div className="space-y-2">
-                      {tagCorrelation.metadata.lagDays.map((day, index) => {
-                        const weights = [lagWeight0, lagWeight1, lagWeight2];
-                        const setters = [setLagWeight0, setLagWeight1, setLagWeight2];
-                        return (
-                          <div key={`${day}-${index}`} className="flex items-center gap-2">
-                            <label className="w-32 text-gray-600">{formatLagDescription(day)}:</label>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              max="1"
-                              value={weights[index]}
-                              onChange={(e) => setters[index](Number(e.target.value))}
-                              className="flex-1 h-7 text-xs"
-                            />
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              )}
+                )}
             </div>
           )}
         </CardHeader>
@@ -630,7 +671,8 @@ export default function AnalysisPage() {
             </div>
           )}
         </CardContent>
-      </Card>
+        </Card>
+      )}
     </div>
   );
 }
