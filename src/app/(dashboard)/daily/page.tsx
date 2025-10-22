@@ -10,39 +10,20 @@ import { ArrowUp, LayoutGrid, List, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 
-// モックデータ
-const mockDailies = [
-  {
-    date: "2025-10-13",
-    memo: "今日は調子が良かった。朝から散歩して、午後は読書。夜もぐっすり眠れそう。",
-    condition: 1,
-  },
-  {
-    date: "2025-10-12",
-    memo: "特に変化なし。普通の一日。",
-    condition: 0,
-  },
-  {
-    date: "2025-10-11",
-    memo: "頭痛がひどくて辛い一日だった。早めに薬を飲んで休んだ。",
-    condition: -2,
-  },
-  {
-    date: "2025-10-10",
-    memo: "友人と会ってリフレッシュできた。久しぶりに外食も楽しめた。",
-    condition: 2,
-  },
-  {
-    date: "2025-10-09",
-    memo: null,
-    condition: 0,
-  },
-];
+// データの型定義
+type DailyData = {
+  date: string;
+  memo: string | null;
+  condition: number;
+  sleepStart: string | null;
+  sleepEnd: string | null;
+};
 
 export default function DailyPage() {
   const { setSidebarContent } = useSidebarContent();
 
-  const [dailies, setDailies] = useState(mockDailies);
+  const [dailies, setDailies] = useState<DailyData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [viewMode, setViewMode] = useState<"list" | "calendar">("calendar");
   const [showFormDialog, setShowFormDialog] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>("");
@@ -52,6 +33,38 @@ export default function DailyPage() {
   const today = format(new Date(), "yyyy-MM-dd");
   // 今日の日記が既に存在するかチェック
   const hasTodayEntry = dailies.some((daily) => daily.date === today);
+
+  // データ取得
+  useEffect(() => {
+    const fetchDailies = async () => {
+      try {
+        setIsLoading(true);
+
+        // 90日分のデータを取得
+        const today = new Date();
+        const from = new Date(today);
+        from.setDate(today.getDate() - 89); // 今日を含めて90日分
+
+        const fromStr = format(from, "yyyy-MM-dd");
+        const toStr = format(today, "yyyy-MM-dd");
+
+        const response = await fetch(`/api/daily?from=${fromStr}&to=${toStr}`);
+
+        if (!response.ok) {
+          throw new Error("データの取得に失敗しました");
+        }
+
+        const data = await response.json();
+        setDailies(data.items || []);
+      } catch (error) {
+        console.error("データ取得エラー:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchDailies();
+  }, []);
 
   // サイドバーコンテンツを設定
   useEffect(() => {
@@ -79,11 +92,18 @@ export default function DailyPage() {
     return dailies.filter((daily) => daily.condition === selectedCondition);
   }, [dailies, selectedCondition]);
 
-  const handleSubmit = (data: { memo: string; condition: number }) => {
+  const handleSubmit = (data: {
+    memo: string;
+    condition: number;
+    sleepStart?: string | null;
+    sleepEnd?: string | null;
+  }) => {
     const updatedDaily = {
       date: selectedDate,
       memo: data.memo || null,
       condition: data.condition,
+      sleepStart: data.sleepStart ?? null,
+      sleepEnd: data.sleepEnd ?? null,
     };
 
     // 既存の日記があれば更新、なければ追加
@@ -104,6 +124,17 @@ export default function DailyPage() {
     setDailies(updatedDailies);
   };
 
+  // ローディング中の表示
+  if (isLoading) {
+    return (
+      <div className="mx-auto max-w-3xl">
+        <div className="flex items-center justify-center py-12">
+          <div className="text-gray-500">読み込み中...</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-3xl space-y-4 sm:space-y-6">
       {/* ヘッダー */}
@@ -113,7 +144,7 @@ export default function DailyPage() {
           <p className="mt-1 text-sm text-gray-500">日々の日記を記録</p>
         </div>
 
-        {/* ビュー切り替え（モック） */}
+        {/* ビュー切り替え */}
         <div className="flex gap-1 rounded-lg border p-1 self-start sm:self-auto">
           <Button
             variant={viewMode === "calendar" ? "default" : "ghost"}
@@ -203,6 +234,8 @@ export default function DailyPage() {
         date={selectedDate}
         initialMemo={dailies.find((d) => d.date === selectedDate)?.memo || ""}
         initialCondition={dailies.find((d) => d.date === selectedDate)?.condition ?? 0}
+        initialSleepStart={dailies.find((d) => d.date === selectedDate)?.sleepStart}
+        initialSleepEnd={dailies.find((d) => d.date === selectedDate)?.sleepEnd}
       />
     </div>
   );

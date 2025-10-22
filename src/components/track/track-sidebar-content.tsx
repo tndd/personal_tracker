@@ -10,17 +10,29 @@ interface TrackSidebarContentProps {
   onTagsChange: (tagIds: string[]) => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
+  selectedConditions: number[];
+  onConditionsChange: (conditions: number[]) => void;
 }
 
 interface CategoryWithTags extends Category {
   tags: Tag[];
 }
 
+const conditionOptions = [
+  { value: -2, label: "-2", shortLabel: "-2", color: "bg-red-600", textColor: "text-red-700", size: "w-[20px] h-[20px]" },
+  { value: -1, label: "-1", shortLabel: "-1", color: "bg-orange-400", textColor: "text-orange-600", size: "w-[16px] h-[16px]" },
+  { value: 0, label: "±0", shortLabel: "±0", color: "bg-gray-400", textColor: "text-gray-700", size: "w-3 h-3" },
+  { value: 1, label: "+1", shortLabel: "+1", color: "bg-green-400", textColor: "text-green-600", size: "w-[16px] h-[16px]" },
+  { value: 2, label: "+2", shortLabel: "+2", color: "bg-sky-500", textColor: "text-sky-700", size: "w-[20px] h-[20px]" },
+];
+
 export function TrackSidebarContent({
   selectedTagIds,
   onTagsChange,
   searchQuery,
   onSearchChange,
+  selectedConditions,
+  onConditionsChange,
 }: TrackSidebarContentProps) {
   const [categories, setCategories] = useState<CategoryWithTags[]>([]);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
@@ -86,6 +98,14 @@ export function TrackSidebarContent({
     }
   };
 
+  const toggleCondition = (value: number) => {
+    if (selectedConditions.includes(value)) {
+      onConditionsChange(selectedConditions.filter((v) => v !== value));
+    } else {
+      onConditionsChange([...selectedConditions, value]);
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* 検索バー */}
@@ -98,6 +118,47 @@ export function TrackSidebarContent({
           onChange={(e) => onSearchChange(e.target.value)}
           className="pl-9 text-sm"
         />
+      </div>
+
+      {/* コンディションフィルター */}
+      <div>
+        <h3 className="text-sm font-medium text-gray-700 mb-2">コンディションフィルター</h3>
+        <div className="flex gap-1.5 items-end justify-between">
+          {conditionOptions.map((option) => {
+            const isSelected = selectedConditions.includes(option.value);
+            return (
+              <button
+                key={option.value}
+                onClick={() => toggleCondition(option.value)}
+                className={`flex flex-col items-center gap-1 px-1.5 py-1.5 rounded-md transition-all flex-1 ${
+                  isSelected
+                    ? "bg-blue-50 border-2 border-blue-500 shadow-sm"
+                    : "border-2 border-transparent hover:bg-gray-100"
+                }`}
+                title={`コンディション: ${option.label}`}
+                aria-label={`コンディション: ${option.label}`}
+              >
+                <div className={`flex items-center justify-center h-[20px]`}>
+                  <div className={`${option.size} rounded-full ${option.color} flex-shrink-0`} />
+                </div>
+                <span className={`text-xs ${isSelected ? "text-blue-700 font-medium" : option.textColor}`}>
+                  {option.shortLabel}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        {selectedConditions.length > 0 && (
+          <div className="mt-2 text-xs text-gray-600 flex items-center justify-between">
+            <span>{selectedConditions.length}個のコンディションで絞り込み中</span>
+            <button
+              onClick={() => onConditionsChange([])}
+              className="text-blue-600 hover:text-blue-700 font-medium"
+            >
+              クリア
+            </button>
+          </div>
+        )}
       </div>
 
       {/* タグツリー */}
@@ -117,6 +178,8 @@ export function TrackSidebarContent({
                   <button
                     onClick={() => toggleCategory(category.id)}
                     className="flex items-center gap-2 w-full text-left px-2 py-1.5 rounded hover:bg-gray-100 transition-colors"
+                    aria-expanded={isExpanded}
+                    aria-controls={`tag-filter-${category.id}`}
                   >
                     {isExpanded ? (
                       <ChevronDown className="h-4 w-4 text-gray-500" />
@@ -137,7 +200,10 @@ export function TrackSidebarContent({
 
                   {/* タグリスト */}
                   {isExpanded && (
-                    <div className="ml-6 space-y-1">
+                    <div
+                      id={`tag-filter-${category.id}`}
+                      className="ml-6 space-y-1"
+                    >
                       {category.tags.length === 0 ? (
                         <div className="text-xs text-gray-400 px-2 py-1">
                           タグがありません
@@ -146,6 +212,7 @@ export function TrackSidebarContent({
                         category.tags.map((tag) => (
                           <label
                             key={tag.id}
+                            data-testid="tag-filter-item"
                             className="flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-100 transition-colors cursor-pointer"
                           >
                             <input

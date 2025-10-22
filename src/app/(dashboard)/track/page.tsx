@@ -3,8 +3,11 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { TrackForm } from "@/components/track/track-form";
 import { TrackCard } from "@/components/track/track-card";
+import { TrackEditDialog } from "@/components/track/track-edit-dialog";
 import { TrackSidebarContent } from "@/components/track/track-sidebar-content";
 import { useSidebarContent } from "@/contexts/sidebar-content-context";
+import { format } from "date-fns";
+import { ja } from "date-fns/locale";
 import { ArrowUp, Loader2 } from "lucide-react";
 import type { Track, Tag, Category } from "@/lib/db/schema";
 
@@ -29,10 +32,14 @@ export default function TrackPage() {
 
   // タグ情報のキャッシュ
   const [tagsCache, setTagsCache] = useState<Map<string, Tag & { category: Category }>>(new Map());
+  const [editingTrack, setEditingTrack] = useState<TrackWithTags | null>(null);
+  const [isEditSubmitting, setIsEditSubmitting] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
 
   // フィルター状態
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedConditions, setSelectedConditions] = useState<number[]>([]);
 
   // タグ情報を取得してキャッシュする
   const fetchTagsInfo = useCallback(async (tagIds: string[]) => {
@@ -70,6 +77,14 @@ export default function TrackPage() {
 
     return tagIds.map((id) => tagsCache.get(id)).filter((tag): tag is Tag & { category: Category } => tag !== undefined);
   }, [tagsCache]);
+
+  const formatTrackLabel = useCallback((track: TrackWithTags) => {
+    const createdAt =
+      typeof track.createdAt === "string"
+        ? new Date(track.createdAt)
+        : track.createdAt ?? new Date();
+    return format(createdAt, "yyyy年M月d日 HH:mm", { locale: ja });
+  }, []);
 
   const handleSubmit = useCallback(async (data: { memo: string; condition: number; tagIds: string[] }) => {
     try {
@@ -121,6 +136,65 @@ export default function TrackPage() {
       console.error("トラック削除エラー:", error);
     }
   }, []);
+
+  const handleOpenEdit = useCallback((id: string) => {
+    const target = tracks.find((track) => track.id === id);
+    if (target) {
+      setEditingTrack(target);
+      setEditError(null);
+    }
+  }, [tracks]);
+
+  const handleCloseEdit = useCallback(() => {
+    setEditingTrack(null);
+    setEditError(null);
+  }, []);
+
+  const handleEditSubmit = useCallback(async (trackId: string, data: { memo: string; condition: number; tagIds: string[] }) => {
+    setIsEditSubmitting(true);
+    setEditError(null);
+
+    try {
+      const response = await fetch(`/api/tracks/${trackId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          memo: data.memo,
+          condition: data.condition,
+          tagIds: data.tagIds,
+        }),
+      });
+
+      if (!response.ok) {
+        console.error("トラック更新エラー");
+        setEditError("更新に失敗しました。時間をおいて再試行してください。");
+        return;
+      }
+
+      const updatedTrack: Track = await response.json();
+      const tags = await fetchTagsInfo(updatedTrack.tagIds || []);
+
+      const trackWithTags: TrackWithTags = {
+        ...updatedTrack,
+        tags,
+      };
+
+      setTracks((prev) =>
+        prev.map((track) => (track.id === trackWithTags.id ? trackWithTags : track)),
+      );
+      setEditingTrack(null);
+    } catch (error) {
+      console.error("トラック更新エラー:", error);
+      setEditError("更新に失敗しました。時間をおいて再試行してください。");
+    } finally {
+      setIsEditSubmitting(false);
+    }
+  }, [fetchTagsInfo]);
+
+  const handleEditDialogSubmit = useCallback((data: { memo: string; condition: number; tagIds: string[] }) => {
+    if (!editingTrack) return;
+    void handleEditSubmit(editingTrack.id, data);
+  }, [editingTrack, handleEditSubmit]);
 
   // トラックを読み込む
   const loadMoreTracks = useCallback(async () => {
@@ -209,11 +283,13 @@ export default function TrackPage() {
         onTagsChange={setSelectedTagIds}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
+        selectedConditions={selectedConditions}
+        onConditionsChange={setSelectedConditions}
       />
     );
 
     return () => setSidebarContent(null);
-  }, [selectedTagIds, searchQuery, setSidebarContent]);
+  }, [selectedTagIds, searchQuery, selectedConditions, setSidebarContent]);
 
   // 初回ロード完了時のみスクロールを最下部に移動
   useEffect(() => {
@@ -274,6 +350,14 @@ export default function TrackPage() {
       });
     }
 
+    // コンディションでフィルター
+    if (selectedConditions.length > 0) {
+      result = result.filter((track) => {
+        // 選択されたコンディションのいずれかに一致するか
+        return selectedConditions.includes(track.condition ?? 0);
+      });
+    }
+
     // タグIDでフィルター
     if (selectedTagIds.length > 0) {
       result = result.filter((track) => {
@@ -283,7 +367,7 @@ export default function TrackPage() {
     }
 
     return result;
-  }, [tracks, searchQuery, selectedTagIds]);
+  }, [tracks, searchQuery, selectedConditions, selectedTagIds]);
 
   // Slack風：古いものが上、新しいものが下
   const displayTracks = [...filteredTracks].reverse();
@@ -364,7 +448,7 @@ export default function TrackPage() {
                     : new Date().toISOString()
               }
               onDelete={() => handleDelete(track.id)}
-              onEdit={() => console.log("Edit", track.id)}
+              onEdit={() => handleOpenEdit(track.id)}
             />
           ))}
         </div>
@@ -374,6 +458,26 @@ export default function TrackPage() {
       <div className="shrink-0">
         <TrackForm onSubmit={handleSubmit} />
       </div>
+
+      {editingTrack && (
+        <TrackEditDialog
+          isOpen={true}
+          onClose={handleCloseEdit}
+          onSubmit={handleEditDialogSubmit}
+          trackLabel={formatTrackLabel(editingTrack)}
+          initialMemo={editingTrack.memo ?? ""}
+          initialCondition={editingTrack.condition ?? 0}
+          initialTags={editingTrack.tags.map((tag) => ({
+            id: tag.id,
+            name: tag.name,
+            categoryId: tag.category.id,
+            categoryName: tag.category.name,
+            color: tag.category.color,
+          }))}
+          errorMessage={editError}
+          isSubmitting={isEditSubmitting}
+        />
+      )}
     </div>
   );
 }

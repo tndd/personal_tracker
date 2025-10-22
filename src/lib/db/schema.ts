@@ -86,6 +86,8 @@ export const dailies = pgTable(
     date: date("date").notNull(),
     memo: text("memo"),
     condition: integer("condition").default(0),
+    sleepStart: timestamp("sleep_start", { withTimezone: true }),
+    sleepEnd: timestamp("sleep_end", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
   },

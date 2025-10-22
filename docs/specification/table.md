@@ -61,10 +61,12 @@
 ## daily テーブル
 日記（1日1件）
 
-| カラム名   | 型          | 制約                                          | 説明                            |
-| ---------- | ----------- | --------------------------------------------- | ------------------------------- |
-| date       | DATE        | PRIMARY KEY                                   | 日付（YYYY-MM-DD）              |
-| memo       | TEXT        | CHECK (char_length(memo) <= 5000)             | 日記内容（最大5000文字）        |
-| condition  | INTEGER     | DEFAULT 0, CHECK (condition BETWEEN -2 AND 2) | 1日全体のコンディション（-2~2） |
-| created_at | TIMESTAMPTZ | DEFAULT NOW()                                 | 作成日時                        |
-| updated_at | TIMESTAMPTZ | DEFAULT NOW()                                 | 更新日時                        |
+| カラム名      | 型          | 制約                                                           | 説明                            |
+| ------------- | ----------- | -------------------------------------------------------------- | ------------------------------- |
+| date          | DATE        | PRIMARY KEY                                                    | 日付（YYYY-MM-DD）              |
+| memo          | TEXT        | CHECK (char_length(memo) <= 5000)                              | 日記内容（最大5000文字）        |
+| condition     | INTEGER     | DEFAULT 0, CHECK (condition BETWEEN -2 AND 2)                  | 1日全体のコンディション（-2~2） |
+| sleep_start   | TIMESTAMPTZ | NULLABLE                                                       | 就寝時刻                        |
+| sleep_end     | TIMESTAMPTZ | NULLABLE                                                       | 起床時刻                        |
+| created_at    | TIMESTAMPTZ | DEFAULT NOW()                                                  | 作成日時                        |
+| updated_at    | TIMESTAMPTZ | DEFAULT NOW()                                                  | 更新日時                        |

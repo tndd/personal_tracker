@@ -260,12 +260,14 @@
 ## daily API
 
 ### 共通フィールド
-| フィールド                | 型                  | 説明           |
-| ------------------------- | ------------------- | -------------- |
-| `date`                    | string (YYYY-MM-DD) | 主キー         |
-| `memo`                    | string \| null      | 最大5000文字   |
-| `condition`               | number              | -2〜2          |
-| `createdAt` / `updatedAt` | string              | タイムスタンプ |
+| フィールド                | 型                  | 説明                         |
+| ------------------------- | ------------------- | ---------------------------- |
+| `date`                    | string (YYYY-MM-DD) | 主キー                       |
+| `memo`                    | string \| null      | 最大5000文字                 |
+| `condition`               | number              | -2〜2                        |
+| `sleepStart`              | string \| null      | 就寝時刻（ISO8601形式）      |
+| `sleepEnd`                | string \| null      | 起床時刻（ISO8601形式）      |
+| `createdAt` / `updatedAt` | string              | タイムスタンプ               |
 
 ### GET `/api/daily`
 - 説明: 日記の期間取得（デフォルトは直近30日）
@@ -281,6 +283,8 @@
         "date": "2025-01-15",
         "memo": "記録",
         "condition": 1,
+        "sleepStart": "2025-01-14T23:00:00.000Z",
+        "sleepEnd": "2025-01-15T07:00:00.000Z",
         "createdAt": "2025-01-15T05:00:00.000Z",
         "updatedAt": "2025-01-15T05:00:00.000Z"
       }
@@ -302,10 +306,13 @@
   ```json
   {
     "memo": "初回記録",
-    "condition": 0
+    "condition": 0,
+    "sleepStart": "2025-01-14T23:00:00.000Z",
+    "sleepEnd": "2025-01-15T07:00:00.000Z"
   }
   ```
 - 部分更新: 既存値とマージ（例: memo未指定の場合は過去値を保持）
+- 睡眠記録の削除: `sleepStart`, `sleepEnd` に `null` を指定すると削除可能
 - レスポンス 200: 作成・更新後のレコード
 - エラー:
   - `400`: スキーマ不正 / 日付不正
@@ -335,25 +342,136 @@
 - エラー:
   - `400`: パラメータ不正
 
-### GET `/api/analysis/tag-correlation`
-- 説明: トラックとタグの出現頻度および平均コンディションを算出
-- クエリ: `from` / `to` (optional, YYYY-MM-DD。未指定時は直近30日)
+### GET `/api/analysis/condition-track`
+- 説明: `track` テーブルの `created_at` を起点に、指定粒度（時間/日）でコンディション比率と睡眠情報を集計する
+- クエリ:
+  - `granularity` (optional, `1-24h` や `1-30d`。既定は `3h`)
+  - `from` / `to` (optional, YYYY-MM-DD。未指定時は粒度16区間分を直近で補間)
 - レスポンス 200:
   ```json
   {
     "items": [
       {
-        "tagId": "tag-1",
-        "tagName": "頭痛",
-        "usageCount": 2,
-        "averageCondition": -1.0
+        "slotIndex": 0,
+        "startTime": "2025-02-01T00:00:00.000Z",
+        "endTime": "2025-02-01T23:59:59.000Z",
+        "min": -1,
+        "max": 2,
+        "count": 5,
+        "counts": { "-1": 1, "0": 2, "2": 2 },
+        "ratios": { "-1": 0.2, "0": 0.4, "2": 0.4 },
+        "sleepHours": 6.5,
+        "sleepStart": "2025-01-31T14:30:00.000Z",
+        "sleepEnd": "2025-02-01T00:30:00.000Z"
       }
-    ]
+    ],
+    "granularity": "1d"
   }
   ```
 - 備考:
-  - `averageCondition` が算出不能な場合は `null`
-  - 集計対象は `tracks.created_at` が `from`〜`to` であるデータ
+  - 粒度は時間（`h`）もしくは日（`d`）単位のみサポート。週次・月次は `/api/analysis/condition-daily` を利用する
+  - スロット内の睡眠統計は `daily` テーブルを同一期間で参照し平均値を返す
+- エラー:
+  - `400`: パラメータ不正
+
+### GET `/api/analysis/condition-daily`
+- 説明: `daily` テーブルの記録を週次・月次のスロットへ集約し、コンディション比率と睡眠情報を返す
+- クエリ:
+  - `granularity` (optional, `"1w" | "1m"`。既定は `"1w"`)
+  - `from` / `to` (optional, YYYY-MM-DD。未指定時は粒度16区間分を直近で補間)
+- レスポンス 200:
+  ```json
+  {
+    "items": [
+      {
+        "slotIndex": 0,
+        "startTime": "2025-02-01T00:00:00.000Z",
+        "endTime": "2025-03-03T00:00:00.000Z",
+        "min": -2,
+        "max": 2,
+        "count": 12,
+        "counts": { "-2": 2, "0": 5, "1": 3, "2": 2 },
+        "ratios": { "-2": 0.17, "0": 0.42, "1": 0.25, "2": 0.17 },
+        "sleepHours": 6.8,
+        "sleepStart": "2025-02-01T14:30:00.000Z",
+        "sleepEnd": "2025-02-02T00:15:00.000Z"
+      }
+    ],
+    "granularity": "1m"
+  }
+  ```
+- 備考:
+  - 週次は7日、月次は30日を1スロットとして計算する（JST基準で区切る）
+  - スロット内の睡眠統計は `daily.sleep_start/sleep_end` が存在する行のみ平均値を算出
+- エラー:
+  - `400`: パラメータ不正
+
+### GET `/api/analysis/tag-correlation`
+- 説明: トラックに紐付いたタグが指定粒度で先行日数分の `daily.condition` に与える影響度を、ベイズ推定で算出し返却する
+- クエリ:
+  - `from` / `to` (optional, YYYY-MM-DD。未指定時は直近30日)
+  - `granularity` (optional, `"1d" | "1w" | "1m"`。未指定時は `"1d"`) — 参照する先行日数セットを切り替える
+- レスポンス 200:
+  ```json
+  {
+    "positive": [
+      {
+        "tagId": "tag-2",
+        "tagName": "睡眠十分",
+        "occurrenceCount": 3,
+        "observationCount": 7,
+        "effectiveSampleSize": 4.2,
+        "totalWeight": 4.84,
+        "rawMean": 1.75,
+        "baselineMean": 0.42,
+        "rawContribution": 1.33,
+        "contribution": 0.58,
+        "confidence": 0.76,
+        "probabilitySameSign": 0.88,
+        "credibleInterval": {
+          "lower": -0.01,
+          "upper": 1.17
+        }
+      }
+    ],
+    "negative": [
+      {
+        "tagId": "tag-4",
+        "tagName": "夜更かし",
+        "occurrenceCount": 2,
+        "observationCount": 4,
+        "effectiveSampleSize": 2.1,
+        "totalWeight": 3.17,
+        "rawMean": -1.20,
+        "baselineMean": 0.42,
+        "rawContribution": -1.62,
+        "contribution": -0.49,
+        "confidence": 0.64,
+        "probabilitySameSign": 0.82,
+        "credibleInterval": {
+          "lower": -1.04,
+          "upper": 0.06
+        }
+      }
+    ],
+    "metadata": {
+      "lagWeights": [1.0, 0.67, 0.5],
+      "lagDays": [1, 2, 3],
+      "granularity": "1d",
+      "baselineMean": 0.42,
+      "priorMean": 0,
+      "priorWeight": 5,
+      "priorVariance": 1
+    }
+  }
+  ```
+- 備考:
+  - `occurrenceCount` は期間中に該当タグを含んだトラック件数、`observationCount` は翌日〜3日後で取得できた `daily` の有効データ件数
+  - `rawMean` はタグ出現時の重み付き平均値、`baselineMean` は全タグ横断の重み付き平均値
+  - `rawContribution` はベースラインとの差分、`contribution` はベイズ調整後の寄与度
+  - `confidence` は 0〜1 のスケールに正規化した信頼指標、`probabilitySameSign` は効果の符号が維持される事後確率 (0.5〜1.0)
+  - `credibleInterval` は 95% 信用区間
+  - 集計対象は `track.created_at` が `from`〜`to` のデータで、粒度ごとのラグ日数（`1d`: 翌日・翌々日・3日後、`1w`: 7/14/21日後、`1m`: 30/60/90日後）に存在する `daily` レコードのみを参照。`metadata.lagDays` に実際の参照日数を返却する
 - エラー:
   - `400`: パラメータ不正
 

@@ -3,7 +3,7 @@
 import { Card } from "@/components/ui/card";
 
 const conditionOptions = [
-  { value: 2, label: "+2", description: "最高", bgColor: "bg-green-600" },
+  { value: 2, label: "+2", description: "最高", bgColor: "bg-sky-500" },
   { value: 1, label: "+1", description: "良い", bgColor: "bg-green-400" },
   { value: 0, label: "±0", description: "普通", bgColor: "bg-gray-400" },
   { value: -1, label: "-1", description: "悪い", bgColor: "bg-orange-400" },
@@ -29,16 +29,13 @@ export function ConditionSelectorPopup({
   };
 
   return (
-    <>
-      {/* 背景クリックで閉じる */}
+    <div className="fixed inset-0 z-50">
       <div
-        className="fixed inset-0 z-40"
+        className="absolute inset-0"
         onClick={onClose}
       />
-
-      {/* ポップアップ */}
       <Card
-        className="absolute z-50 w-48 shadow-lg"
+        className="absolute z-10 w-48 shadow-lg"
         style={{
           bottom: position?.bottom || 0,
           right: position?.right || 0,
@@ -55,6 +52,7 @@ export function ConditionSelectorPopup({
                     ? "bg-blue-50 border border-blue-200"
                     : "hover:bg-gray-100"
                 }`}
+                aria-label={`コンディション: ${option.label}`}
               >
                 <span className={`h-6 w-6 rounded-full ${option.bgColor}`} />
                 <div className="flex-1">
@@ -66,6 +64,6 @@ export function ConditionSelectorPopup({
           </div>
         </div>
       </Card>
-    </>
+    </div>
   );
 }

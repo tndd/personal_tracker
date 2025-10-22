@@ -6,7 +6,7 @@ interface DailySidebarContentProps {
 }
 
 const conditionOptions = [
-  { value: 2, label: "とても良い", color: "bg-green-500", textColor: "text-green-700" },
+  { value: 2, label: "とても良い", color: "bg-sky-500", textColor: "text-sky-700" },
   { value: 1, label: "良い", color: "bg-green-400", textColor: "text-green-600" },
   { value: 0, label: "普通", color: "bg-gray-400", textColor: "text-gray-700" },
   { value: -1, label: "悪い", color: "bg-orange-400", textColor: "text-orange-600" },

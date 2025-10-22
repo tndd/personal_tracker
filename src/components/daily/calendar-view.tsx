@@ -32,7 +32,7 @@ interface CalendarViewProps {
 
 // コンディションの色設定
 const conditionColors = {
-  2: "bg-green-600",
+  2: "bg-sky-500",
   1: "bg-green-400",
   0: "bg-gray-400",
   "-1": "bg-orange-400",

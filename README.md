@@ -154,6 +154,15 @@ ENVIRONMENT=PROD npm run db:push
 # 開発サーバーの起動
 npm run dev
 
+# 開発サーバーの安全な起動（既存プロセスチェック付き）
+./scripts/safe-dev.sh
+
+# 開発サーバーの安全な起動（キャッシュクリーンアップ付き）
+./scripts/safe-dev.sh --clean
+
+# プロセスのクリーンアップ（playwright MCP/npm run devの重複解消）
+./scripts/cleanup-processes.sh
+
 # ビルド
 npm run build
 
@@ -172,6 +181,30 @@ npm run db:push
 # E2Eテストの実行
 npm run test:e2e
 ```
+
+### トラブルシューティング
+
+#### playwright MCPが動作しない場合
+
+playwright MCPのプロセスが重複していることが原因の可能性があります。以下のコマンドでクリーンアップしてください：
+
+```bash
+./scripts/cleanup-processes.sh
+```
+
+#### npm run devでポート3000が既に使用されている場合
+
+既存のプロセスを自動でチェックして安全に起動するには：
+
+```bash
+./scripts/safe-dev.sh
+```
+
+このスクリプトは以下を自動で行います：
+- ポート3000の使用状況チェック
+- 必要に応じて既存プロセスの終了確認
+- playwright MCPの重複警告
+- 開発サーバーの起動
 
 ## プロジェクト構成
 

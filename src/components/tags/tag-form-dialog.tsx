@@ -20,6 +20,8 @@ export function TagFormDialog({
   onClose,
   onSubmit,
   categoryName,
+  // categoryColor は現在使用されていない（プレビュー機能削除のため）
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   categoryColor,
   initialName = "",
 }: TagFormDialogProps) {
@@ -55,12 +57,12 @@ export function TagFormDialog({
     <>
       {/* 背景オーバーレイ */}
       <div
-        className="fixed inset-0 z-40 bg-black/50"
+        className="fixed inset-0 z-[60] bg-black/50"
         onClick={onClose}
       />
 
       {/* ダイアログ */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
             <CardTitle>
@@ -84,24 +86,6 @@ export function TagFormDialog({
               />
               <p className="text-xs text-gray-500">{tagName.length}/50</p>
             </div>
-
-            {/* プレビュー */}
-            {tagName.trim() && (
-              <div className="space-y-2">
-                <label className="text-sm font-medium">プレビュー</label>
-                <div className="flex items-center gap-2">
-                  <span
-                    className="inline-flex items-center rounded-md px-3 py-1.5 text-sm font-medium"
-                    style={{
-                      backgroundColor: `${categoryColor}20`,
-                      color: categoryColor,
-                    }}
-                  >
-                    {tagName.trim()}
-                  </span>
-                </div>
-              </div>
-            )}
 
             {/* ボタン */}
             <div className="flex justify-end gap-2 pt-2">

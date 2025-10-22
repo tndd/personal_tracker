@@ -55,6 +55,7 @@ export function TagSelectorPopup({ onSelect, onClose, position }: TagSelectorPop
         );
 
         setCategories(categoriesWithTags);
+        setExpandedCategories(new Set(categoriesWithTags.map((category) => category.id)));
       } catch (error) {
         console.error("データ取得エラー:", error);
       } finally {
@@ -88,16 +89,13 @@ export function TagSelectorPopup({ onSelect, onClose, position }: TagSelectorPop
   };
 
   return (
-    <>
-      {/* 背景クリックで閉じる */}
+    <div className="fixed inset-0 z-50">
       <div
-        className="fixed inset-0 z-40"
+        className="absolute inset-0"
         onClick={onClose}
       />
-
-      {/* ポップアップ */}
       <Card
-        className="fixed z-50 w-72 max-h-96 overflow-y-auto shadow-lg"
+        className="absolute z-10 w-72 max-h-96 overflow-y-auto shadow-lg"
         style={{
           bottom: position?.bottom || 0,
           left: position?.left || 0,
@@ -170,6 +168,6 @@ export function TagSelectorPopup({ onSelect, onClose, position }: TagSelectorPop
           )}
         </div>
       </Card>
-    </>
+    </div>
   );
 }

@@ -1,5 +1,6 @@
 /**
- * STG環境に3ヶ月分のサンプルデータを投入するスクリプト
+ * STG環境に6ヶ月分のサンプルデータを投入するスクリプト
+ * プラス・ニュートラル・マイナスのコンディションをバランスよく生成
  *
  * 使い方:
  *   npm run seed:stg
@@ -56,15 +57,27 @@ const CATEGORY_MEDICATION = '22222222-2222-4222-8222-222222222222';
 const CATEGORY_ACTIVITY = '33333333-3333-4333-8333-333333333333';
 
 // タグID（固定 - RFC 4122準拠のUUID v4形式）
+// 症状
 const TAG_HEADACHE = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const TAG_DIZZY = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab';
 const TAG_NAUSEA = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaac';
+const TAG_FATIGUE = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaad';
+const TAG_INSOMNIA = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaae';
+const TAG_STOMACHACHE = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaf';
+
+// 服薬
 const TAG_LOXONIN = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const TAG_DEPAS = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbc';
-const TAG_STOMACH = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbd';
+const TAG_STOMACH_MED = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbd';
+const TAG_SUPPLEMENT = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbe';
+
+// 活動
 const TAG_WALK = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 const TAG_EXERCISE = 'cccccccc-cccc-4ccc-8ccc-cccccccccccd';
-const TAG_SLEEP = 'cccccccc-cccc-4ccc-8ccc-ccccccccccce';
+const TAG_SLEEP_GOOD = 'cccccccc-cccc-4ccc-8ccc-ccccccccccce';
+const TAG_STRETCH = 'cccccccc-cccc-4ccc-8ccc-cccccccccccf';
+const TAG_HYDRATION = 'cccccccc-cccc-4ccc-8ccc-cccccccccc10';
+const TAG_MEAL = 'cccccccc-cccc-4ccc-8ccc-cccccccccc11';
 
 async function main() {
   try {
@@ -85,20 +98,35 @@ async function main() {
 
     console.log('🏷️  タグを作成中...');
     await db.insert(tags).values([
+      // 症状タグ
       { id: TAG_HEADACHE, categoryId: CATEGORY_SYMPTOM, name: '頭痛', sortOrder: 0 },
       { id: TAG_DIZZY, categoryId: CATEGORY_SYMPTOM, name: 'めまい', sortOrder: 1 },
       { id: TAG_NAUSEA, categoryId: CATEGORY_SYMPTOM, name: '吐き気', sortOrder: 2 },
+      { id: TAG_FATIGUE, categoryId: CATEGORY_SYMPTOM, name: '倦怠感', sortOrder: 3 },
+      { id: TAG_INSOMNIA, categoryId: CATEGORY_SYMPTOM, name: '不眠', sortOrder: 4 },
+      { id: TAG_STOMACHACHE, categoryId: CATEGORY_SYMPTOM, name: '腹痛', sortOrder: 5 },
+      // 服薬タグ
       { id: TAG_LOXONIN, categoryId: CATEGORY_MEDICATION, name: 'ロキソニン', sortOrder: 0 },
       { id: TAG_DEPAS, categoryId: CATEGORY_MEDICATION, name: 'デパス', sortOrder: 1 },
-      { id: TAG_STOMACH, categoryId: CATEGORY_MEDICATION, name: '胃薬', sortOrder: 2 },
+      { id: TAG_STOMACH_MED, categoryId: CATEGORY_MEDICATION, name: '胃薬', sortOrder: 2 },
+      { id: TAG_SUPPLEMENT, categoryId: CATEGORY_MEDICATION, name: 'サプリ', sortOrder: 3 },
+      // 活動タグ
       { id: TAG_WALK, categoryId: CATEGORY_ACTIVITY, name: '散歩', sortOrder: 0 },
       { id: TAG_EXERCISE, categoryId: CATEGORY_ACTIVITY, name: '運動', sortOrder: 1 },
-      { id: TAG_SLEEP, categoryId: CATEGORY_ACTIVITY, name: '睡眠', sortOrder: 2 },
+      { id: TAG_SLEEP_GOOD, categoryId: CATEGORY_ACTIVITY, name: '良い睡眠', sortOrder: 2 },
+      { id: TAG_STRETCH, categoryId: CATEGORY_ACTIVITY, name: 'ストレッチ', sortOrder: 3 },
+      { id: TAG_HYDRATION, categoryId: CATEGORY_ACTIVITY, name: '水分補給', sortOrder: 4 },
+      { id: TAG_MEAL, categoryId: CATEGORY_ACTIVITY, name: '食事', sortOrder: 5 },
     ]);
-    console.log('✅ タグを作成しました（9件）');
+    console.log('✅ タグを作成しました（16件）');
+
+    console.log('📅 日記データを作成中...');
+    const { data: dailyData, conditionMap } = generateDailyData();
+    await db.insert(dailies).values(dailyData);
+    console.log(`✅ 日記データを作成しました（${dailyData.length}件）`);
 
     console.log('📊 トラックデータを作成中...');
-    const trackData = generateTrackData();
+    const trackData = generateTrackData(conditionMap);
 
     // バッチ処理（50件ずつ）
     const batchSize = 50;
@@ -108,11 +136,6 @@ async function main() {
       console.log(`  ${Math.min(i + batchSize, trackData.length)}/${trackData.length} 件作成完了`);
     }
     console.log(`✅ トラックデータを作成しました（${trackData.length}件）`);
-
-    console.log('📅 日記データを作成中...');
-    const dailyData = generateDailyData();
-    await db.insert(dailies).values(dailyData);
-    console.log(`✅ 日記データを作成しました（${dailyData.length}件）`);
 
     console.log('');
     console.log('🎉 サンプルデータの投入が完了しました！');
@@ -126,154 +149,286 @@ async function main() {
   }
 }
 
+// タグごとの寄与度定義（翌日以降のdaily conditionへの影響）
+const TAG_EFFECTS = {
+  // 症状タグ（マイナス寄与）
+  [TAG_HEADACHE]: { contribution: -1.2, variance: 0.4 },
+  [TAG_DIZZY]: { contribution: -0.9, variance: 0.3 },
+  [TAG_NAUSEA]: { contribution: -1.1, variance: 0.4 },
+  [TAG_FATIGUE]: { contribution: -0.8, variance: 0.3 },
+  [TAG_INSOMNIA]: { contribution: -1.3, variance: 0.4 },
+  [TAG_STOMACHACHE]: { contribution: -1.0, variance: 0.3 },
+
+  // 服薬タグ（弱いプラス寄与、または中立）
+  [TAG_LOXONIN]: { contribution: 0.3, variance: 0.5 },
+  [TAG_DEPAS]: { contribution: 0.2, variance: 0.5 },
+  [TAG_STOMACH_MED]: { contribution: 0.4, variance: 0.4 },
+  [TAG_SUPPLEMENT]: { contribution: 0.1, variance: 0.2 },
+
+  // 活動タグ（プラス寄与）
+  [TAG_WALK]: { contribution: 0.9, variance: 0.3 },
+  [TAG_EXERCISE]: { contribution: 1.2, variance: 0.4 },
+  [TAG_SLEEP_GOOD]: { contribution: 1.4, variance: 0.3 },
+  [TAG_STRETCH]: { contribution: 0.7, variance: 0.3 },
+  [TAG_HYDRATION]: { contribution: 0.3, variance: 0.2 },
+  [TAG_MEAL]: { contribution: 0.5, variance: 0.3 },
+} as const;
+
 // トラックデータ生成関数
-function generateTrackData() {
+function generateTrackData(dailyConditions: Map<string, number>) {
   const data = [];
 
-  // 3ヶ月分のトラックデータ（2025-07-18 〜 2025-10-16）
-  const trackRecords: Array<{memo: string; condition: number; tagIds: string[]; date: string; time: string}> = [
-    // 2025-07-18
-    { memo: '朝7時起床。頭が重い感じがする', condition: -1, tagIds: [TAG_HEADACHE], date: '2025-07-18', time: '07:15:00' },
-    { memo: 'ロキソニン1錠服用', condition: 0, tagIds: [TAG_LOXONIN], date: '2025-07-18', time: '09:30:00' },
-    { memo: '午後は少し楽になった。読書して過ごす', condition: 0, tagIds: [], date: '2025-07-18', time: '15:00:00' },
+  // 今日から180日前までのデータを生成
+  const today = new Date();
+  const startDate = new Date(today);
+  startDate.setDate(today.getDate() - 179); // 180日分（今日を含む）
 
-    // 2025-07-19
-    { memo: 'よく眠れた。朝から調子が良い', condition: 1, tagIds: [TAG_SLEEP], date: '2025-07-19', time: '08:00:00' },
-    { memo: '公園を30分散歩。気持ちいい', condition: 2, tagIds: [TAG_WALK], date: '2025-07-19', time: '10:30:00' },
-    { memo: '夕食後も元気。良い一日だった', condition: 1, tagIds: [], date: '2025-07-19', time: '19:00:00' },
+  // タグごとの出現確率（現実的なバランス）
+  const tagProbabilities = {
+    // 症状タグ（低頻度だが確実に出現）
+    symptoms: {
+      tags: [TAG_HEADACHE, TAG_DIZZY, TAG_NAUSEA, TAG_FATIGUE, TAG_INSOMNIA, TAG_STOMACHACHE],
+      probability: 0.15, // 15%の日に症状あり
+      multipleTagChance: 0.3, // 30%の確率で複数症状
+    },
+    // 活動タグ（高頻度）
+    activities: {
+      tags: [TAG_WALK, TAG_EXERCISE, TAG_SLEEP_GOOD, TAG_STRETCH, TAG_HYDRATION, TAG_MEAL],
+      probability: 0.7, // 70%の日に何らかの活動記録
+      multipleTagChance: 0.6, // 60%の確率で複数活動
+    },
+    // 服薬タグ（中頻度、症状がある時に出やすい）
+    medications: {
+      tags: [TAG_LOXONIN, TAG_DEPAS, TAG_STOMACH_MED, TAG_SUPPLEMENT],
+      probability: 0.2, // 20%の日に服薬
+      multipleTagChance: 0.2, // 20%の確率で複数服薬
+    },
+  };
 
-    // 2025-07-20
-    { memo: '朝から少しめまいがする', condition: -1, tagIds: [TAG_DIZZY], date: '2025-07-20', time: '07:30:00' },
-    { memo: 'デパス服用。横になって休む', condition: 0, tagIds: [TAG_DEPAS], date: '2025-07-20', time: '11:00:00' },
-    { memo: '午後になって少し回復', condition: 0, tagIds: [], date: '2025-07-20', time: '16:00:00' },
+  // メモのテンプレート
+  const memos = {
+    2: [
+      '最高の気分！体調も気分も絶好調',
+      '素晴らしい一日。エネルギーに満ちている',
+      '体が軽い。何でもできそうな気がする',
+      '気持ちよく目覚めた。完璧な体調',
+    ],
+    1: [
+      '調子良い。今日も頑張れそう',
+      'まあまあ良い感じ。普通に過ごせる',
+      '体調は良好。特に問題なし',
+      '気分も体調も悪くない',
+    ],
+    0: [
+      '普通の状態。可もなく不可もなく',
+      '特に変わったことはない',
+      'いつも通り。平穏な一日',
+      '普通に過ごせている',
+    ],
+    [-1]: [
+      '少し調子が悪い。だるさを感じる',
+      '頭が重い感じがする',
+      'めまいがする。少し休みたい',
+      '体がだるい。無理はしないようにしよう',
+    ],
+    [-2]: [
+      'かなり辛い。横になって休む',
+      '強い頭痛。動けない',
+      '吐き気がひどい。食欲なし',
+      '最悪の体調。一日中寝ていた',
+    ],
+  };
 
-    // 2025-07-21
-    { memo: '普通の朝。特に問題なし', condition: 0, tagIds: [], date: '2025-07-21', time: '08:00:00' },
-    { memo: 'ストレッチを20分。体が軽くなる', condition: 1, tagIds: [TAG_EXERCISE], date: '2025-07-21', time: '14:00:00' },
-    { memo: '夜は早めに就寝', condition: 0, tagIds: [], date: '2025-07-21', time: '21:30:00' },
-
-    // 2025-07-22
-    { memo: '朝起きたら頭痛。天気のせいか', condition: -1, tagIds: [TAG_HEADACHE], date: '2025-07-22', time: '07:00:00' },
-    { memo: 'ロキソニン服用。水を多めに飲む', condition: 0, tagIds: [TAG_LOXONIN], date: '2025-07-22', time: '09:00:00' },
-    { memo: '昼頃には良くなった', condition: 0, tagIds: [], date: '2025-07-22', time: '13:00:00' },
-
-    // 2025-07-23
-    { memo: '調子良好。朝から活動的', condition: 1, tagIds: [], date: '2025-07-23', time: '08:30:00' },
-    { memo: '近所を40分散歩。すれ違う人と挨拶', condition: 2, tagIds: [TAG_WALK], date: '2025-07-23', time: '10:00:00' },
-    { memo: '午後も快調。掃除もできた', condition: 1, tagIds: [], date: '2025-07-23', time: '16:00:00' },
-
-    // 2025-07-24
-    { memo: '朝から吐き気がある', condition: -2, tagIds: [TAG_NAUSEA], date: '2025-07-24', time: '07:30:00' },
-    { memo: '胃薬服用。食欲なし', condition: -1, tagIds: [TAG_STOMACH], date: '2025-07-24', time: '10:00:00' },
-    { memo: '夕方まで横になっていた', condition: -1, tagIds: [], date: '2025-07-24', time: '17:00:00' },
-
-    // 2025-07-25
-    { memo: '昨日よりは良くなった', condition: 0, tagIds: [], date: '2025-07-25', time: '08:00:00' },
-    { memo: '軽めの食事。少しずつ食べる', condition: 0, tagIds: [], date: '2025-07-25', time: '12:30:00' },
-    { memo: '夜は普通に過ごせた', condition: 0, tagIds: [], date: '2025-07-25', time: '20:00:00' },
-
-    // 2025-07-26
-    { memo: '朝からスッキリ。体調回復', condition: 1, tagIds: [], date: '2025-07-26', time: '07:45:00' },
-    { memo: '久しぶりに軽い運動。15分ストレッチ', condition: 1, tagIds: [TAG_EXERCISE], date: '2025-07-26', time: '11:00:00' },
-    { memo: '午後も調子良い', condition: 1, tagIds: [], date: '2025-07-26', time: '15:30:00' },
-
-    // 2025-07-27
-    { memo: '普通の朝。いつも通り', condition: 0, tagIds: [], date: '2025-07-27', time: '08:15:00' },
-    { memo: '買い物ついでに散歩', condition: 0, tagIds: [TAG_WALK], date: '2025-07-27', time: '14:00:00' },
-    { memo: '夜は読書', condition: 0, tagIds: [], date: '2025-07-27', time: '21:00:00' },
-
-    // 2025-07-28
-    { memo: '朝から頭が痛い。気圧のせいかも', condition: -1, tagIds: [TAG_HEADACHE], date: '2025-07-28', time: '07:00:00' },
-    { memo: 'ロキソニン服用', condition: 0, tagIds: [TAG_LOXONIN], date: '2025-07-28', time: '09:30:00' },
-    { memo: '午後には回復。少し散歩', condition: 0, tagIds: [TAG_WALK], date: '2025-07-28', time: '16:00:00' },
-
-    // 2025-07-29
-    { memo: 'よく眠れた。朝から元気', condition: 1, tagIds: [TAG_SLEEP], date: '2025-07-29', time: '08:00:00' },
-    { memo: '朝の運動30分。気持ち良い', condition: 2, tagIds: [TAG_EXERCISE], date: '2025-07-29', time: '09:00:00' },
-    { memo: '一日中調子が良かった', condition: 1, tagIds: [], date: '2025-07-29', time: '19:00:00' },
-
-    // 2025-07-30
-    { memo: '普通の朝', condition: 0, tagIds: [], date: '2025-07-30', time: '08:30:00' },
-    { memo: '昼食後に散歩', condition: 0, tagIds: [TAG_WALK], date: '2025-07-30', time: '13:00:00' },
-    { memo: '特に問題なく過ごせた', condition: 0, tagIds: [], date: '2025-07-30', time: '20:00:00' },
-
-    // 2025-07-31
-    { memo: '朝から少しめまい', condition: -1, tagIds: [TAG_DIZZY], date: '2025-07-31', time: '07:30:00' },
-    { memo: 'デパス服用して休む', condition: 0, tagIds: [TAG_DEPAS], date: '2025-07-31', time: '10:00:00' },
-    { memo: '夕方には良くなった', condition: 0, tagIds: [], date: '2025-07-31', time: '17:30:00' },
-
-    // 8月のデータ（簡略版 - パターンを繰り返す）
-    { memo: '8月スタート。朝から調子良い', condition: 1, tagIds: [], date: '2025-08-01', time: '08:00:00' },
-    { memo: '公園を散歩。夏の緑がきれい', condition: 1, tagIds: [TAG_WALK], date: '2025-08-01', time: '10:30:00' },
-    { memo: '午後も快調', condition: 1, tagIds: [], date: '2025-08-01', time: '16:00:00' },
-
-    { memo: '朝から頭痛。暑さのせいか', condition: -1, tagIds: [TAG_HEADACHE], date: '2025-08-02', time: '07:15:00' },
-    { memo: 'ロキソニン服用。水分補給', condition: 0, tagIds: [TAG_LOXONIN], date: '2025-08-02', time: '09:00:00' },
-    { memo: '涼しい部屋で過ごす', condition: 0, tagIds: [], date: '2025-08-02', time: '15:00:00' },
-
-    { memo: 'よく眠れた。朝は涼しい', condition: 1, tagIds: [TAG_SLEEP], date: '2025-08-03', time: '07:30:00' },
-    { memo: '早朝散歩。気持ちいい', condition: 2, tagIds: [TAG_WALK], date: '2025-08-03', time: '08:00:00' },
-    { memo: '日中は暑いが調子は良い', condition: 1, tagIds: [], date: '2025-08-03', time: '14:00:00' },
-
-    // 9月のデータ（簡略版）
-    { memo: '9月スタート。朝は涼しい', condition: 1, tagIds: [], date: '2025-09-01', time: '08:00:00' },
-    { memo: '散歩35分。秋の気配', condition: 2, tagIds: [TAG_WALK], date: '2025-09-01', time: '10:00:00' },
-    { memo: '気持ちの良い一日', condition: 1, tagIds: [], date: '2025-09-01', time: '17:00:00' },
-
-    { memo: '朝から頭が重い', condition: -1, tagIds: [TAG_HEADACHE], date: '2025-09-02', time: '07:15:00' },
-    { memo: 'ロキソニン服用', condition: 0, tagIds: [TAG_LOXONIN], date: '2025-09-02', time: '09:00:00' },
-    { memo: '昼過ぎには楽になった', condition: 0, tagIds: [], date: '2025-09-02', time: '14:00:00' },
-
-    // 10月のデータ（今日まで）
-    { memo: '10月スタート。朝は涼しくて気持ち良い', condition: 1, tagIds: [], date: '2025-10-01', time: '08:00:00' },
-    { memo: '散歩30分。秋が深まってきた', condition: 1, tagIds: [TAG_WALK], date: '2025-10-01', time: '10:30:00' },
-    { memo: '気持ちの良い一日', condition: 1, tagIds: [], date: '2025-10-01', time: '17:00:00' },
-
-    { memo: '朝起床。少し頭痛がする', condition: -1, tagIds: [TAG_HEADACHE], date: '2025-10-16', time: '07:15:00' },
-    { memo: 'ロキソニン服用', condition: 0, tagIds: [TAG_LOXONIN], date: '2025-10-16', time: '09:30:00' },
-    { memo: '昼食後に散歩。調子良い', condition: 1, tagIds: [TAG_WALK], date: '2025-10-16', time: '13:00:00' },
+  // 時間帯のテンプレート
+  const timeSlots = [
+    { hour: 7, minute: () => Math.floor(Math.random() * 60) },
+    { hour: 12, minute: () => Math.floor(Math.random() * 60) },
+    { hour: 17, minute: () => Math.floor(Math.random() * 60) },
+    { hour: 21, minute: () => Math.floor(Math.random() * 60) },
   ];
 
-  // データをフォーマット
-  for (const record of trackRecords) {
-    data.push({
-      memo: record.memo,
-      condition: record.condition,
-      tagIds: record.tagIds,
-      createdAt: new Date(`${record.date}T${record.time}+09:00`),
-      updatedAt: new Date(),
-    });
+  // 180日分のデータを生成
+  for (let dayOffset = 0; dayOffset < 180; dayOffset++) {
+    const currentDate = new Date(startDate);
+    currentDate.setDate(startDate.getDate() + dayOffset);
+    const dateStr = currentDate.toISOString().split('T')[0];
+
+    // この日の翌日のdaily conditionを取得（タグの影響を受ける側）
+    const nextDate = new Date(currentDate);
+    nextDate.setDate(currentDate.getDate() + 1);
+    const nextDateStr = nextDate.toISOString().split('T')[0];
+    const nextDayCondition = dailyConditions.get(nextDateStr) ?? 0;
+
+    // この日のtrack数（5-8件：現実的な範囲）
+    const trackCount = 5 + Math.floor(Math.random() * 4);
+
+    for (let i = 0; i < trackCount; i++) {
+      // タグを選択（翌日のconditionに基づいて逆算的に選ぶ）
+      let tagIds: string[] = [];
+
+      // 翌日が良いコンディション → 今日は活動タグを多めに
+      if (nextDayCondition >= 1) {
+        if (Math.random() < tagProbabilities.activities.probability) {
+          const activityTags = tagProbabilities.activities.tags;
+          tagIds.push(activityTags[Math.floor(Math.random() * activityTags.length)]);
+
+          // 複数タグの追加
+          if (Math.random() < tagProbabilities.activities.multipleTagChance) {
+            const secondTag = activityTags[Math.floor(Math.random() * activityTags.length)];
+            if (!tagIds.includes(secondTag)) {
+              tagIds.push(secondTag);
+            }
+          }
+        }
+      }
+
+      // 翌日が悪いコンディション → 今日は症状タグを多めに
+      if (nextDayCondition <= -1) {
+        if (Math.random() < tagProbabilities.symptoms.probability * 3) { // 確率を高める
+          const symptomTags = tagProbabilities.symptoms.tags;
+          tagIds.push(symptomTags[Math.floor(Math.random() * symptomTags.length)]);
+
+          // 複数タグの追加（悪い日は症状が重なりやすい）
+          if (Math.random() < tagProbabilities.symptoms.multipleTagChance * 1.5) {
+            const secondTag = symptomTags[Math.floor(Math.random() * symptomTags.length)];
+            if (!tagIds.includes(secondTag)) {
+              tagIds.push(secondTag);
+            }
+          }
+
+          // 服薬タグも追加されやすい
+          if (Math.random() < tagProbabilities.medications.probability * 2) {
+            const medTags = tagProbabilities.medications.tags;
+            tagIds.push(medTags[Math.floor(Math.random() * medTags.length)]);
+          }
+        }
+      }
+
+      // ニュートラルな日 → バランスよく
+      if (nextDayCondition === 0) {
+        // 活動タグ
+        if (Math.random() < tagProbabilities.activities.probability * 0.6) {
+          const activityTags = tagProbabilities.activities.tags;
+          tagIds.push(activityTags[Math.floor(Math.random() * activityTags.length)]);
+        }
+        // 症状タグも少し
+        if (Math.random() < tagProbabilities.symptoms.probability * 0.8) {
+          const symptomTags = tagProbabilities.symptoms.tags;
+          tagIds.push(symptomTags[Math.floor(Math.random() * symptomTags.length)]);
+        }
+      }
+
+      // メモ（trackのconditionはdailyと独立なので適当に選ぶ）
+      const trackCondition = [-2, -1, -1, 0, 0, 0, 0, 1, 1, 2][Math.floor(Math.random() * 10)];
+      const memoList = memos[trackCondition as keyof typeof memos];
+      const memo = memoList[Math.floor(Math.random() * memoList.length)];
+
+      // 時間を決定（順番に時間帯を割り当て）
+      const timeSlot = timeSlots[i % timeSlots.length];
+      const hour = timeSlot.hour;
+      const minute = timeSlot.minute();
+
+      // ISO 8601形式で日時を作成（JST: UTC+9）
+      const createdAt = new Date(`${dateStr}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00+09:00`);
+
+      data.push({
+        memo,
+        condition: trackCondition,
+        tagIds,
+        createdAt,
+        updatedAt: new Date(),
+      });
+    }
   }
 
   return data;
 }
 
-// 日記データ生成関数
-function generateDailyData() {
+// 日記データ生成関数（毎日生成 + 睡眠時刻付き）
+// conditionのMapも返す（trackデータ生成時に参照するため）
+function generateDailyData(): { data: typeof dailies.$inferInsert[], conditionMap: Map<string, number> } {
   const data = [];
+  const conditionMap = new Map<string, number>();
 
-  // 3ヶ月分の日記データ
-  const dailyRecords: Array<{ date: string; memo: string; condition: number }> = [
-    { date: '2025-07-18', memo: '朝から頭痛があったが、薬が効いて午後は少し楽になった。ゆっくり過ごした一日。', condition: -1 },
-    { date: '2025-07-19', memo: 'とても調子が良い日。よく眠れたおかげか体が軽い。散歩も気持ちよかった。', condition: 2 },
-    { date: '2025-07-20', memo: 'めまいがして辛い一日。薬を飲んで横になっていた。午後には少し回復。', condition: -1 },
-    { date: '2025-08-01', memo: '8月のスタート。調子良好。散歩を楽しめた。夏の緑が美しい。', condition: 1 },
-    { date: '2025-09-01', memo: '9月スタート。朝は涼しくて気持ち良い。秋の気配を感じる散歩。', condition: 2 },
-    { date: '2025-10-01', memo: '10月スタート。朝は涼しくて気持ち良い。秋が深まってきた。', condition: 1 },
-    { date: '2025-10-16', memo: '朝は頭痛があったが、薬で回復。昼食後の散歩は気持ちよかった。', condition: 0 },
+  // 今日から180日前までの日記データを毎日生成
+  const today = new Date();
+  const startDate = new Date(today);
+  startDate.setDate(today.getDate() - 179);
+
+  const dailyMemos = [
+    '今日は調子が良かった。充実した一日だった。',
+    '普通の一日。特に変わったことはなかった。',
+    '少し体調が優れなかったが、なんとか過ごせた。',
+    '朝から元気で、色々なことができた。良い一日。',
+    '体調がすぐれず、ゆっくり休んだ。明日は良くなりますように。',
+    '散歩をして気分転換できた。体も少し軽くなった気がする。',
+    '頭痛があって辛かった。薬を飲んで横になっていた。',
+    'よく眠れたおかげで、朝からスッキリしていた。',
+    '気圧の変化か、めまいがした。無理せず過ごした。',
+    '久しぶりに運動できた。体を動かすと気持ちいい。',
+    '今日もいつも通り過ごせた。',
+    '疲れが溜まっている感じがする。早めに寝よう。',
+    '天気が良くて気分が良かった。',
+    '少し寝不足だったが、なんとか乗り切れた。',
+    '仕事が忙しかったが、充実感がある。',
   ];
 
-  for (const record of dailyRecords) {
+  for (let dayOffset = 0; dayOffset < 180; dayOffset++) {
+    const currentDate = new Date(startDate);
+    currentDate.setDate(startDate.getDate() + dayOffset);
+    const dateStr = currentDate.toISOString().split('T')[0];
+
+    // condition値をバランスよく選択（プラス・ニュートラル・マイナスを各33%程度）
+    const conditionWeights = [-2, -2, -2, -1, -1, -1, -1, -1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2];
+    const condition = conditionWeights[Math.floor(Math.random() * conditionWeights.length)];
+
+    // Mapに保存
+    conditionMap.set(dateStr, condition);
+
+    // メモ（70%の確率で追加）
+    const memo = Math.random() > 0.3
+      ? dailyMemos[Math.floor(Math.random() * dailyMemos.length)]
+      : null;
+
+    // 睡眠時刻（90%の確率で記録）
+    let sleepStart = null;
+    let sleepEnd = null;
+
+    if (Math.random() > 0.1) {
+      // 就寝時刻: 22:00-2:00 (前日22時〜当日2時)
+      const sleepHour = 22 + Math.floor(Math.random() * 5); // 22-26時
+      const sleepMinute = Math.floor(Math.random() * 60);
+      const actualSleepHour = sleepHour >= 24 ? sleepHour - 24 : sleepHour;
+      const sleepDay = sleepHour >= 24 ? currentDate : new Date(currentDate.getTime() - 24 * 60 * 60 * 1000);
+
+      sleepStart = new Date(
+        Date.UTC(
+          sleepDay.getUTCFullYear(),
+          sleepDay.getUTCMonth(),
+          sleepDay.getUTCDate(),
+          actualSleepHour - 9, // JSTからUTCに変換 (JST = UTC+9)
+          sleepMinute
+        )
+      );
+
+      // 起床時刻: 就寝から6-9時間後
+      const sleepDuration = 6 + Math.random() * 3;
+      sleepEnd = new Date(sleepStart.getTime() + sleepDuration * 60 * 60 * 1000);
+
+    }
+
     data.push({
-      date: record.date,
-      memo: record.memo,
-      condition: record.condition,
+      date: dateStr,
+      memo,
+      condition,
+      sleepStart,
+      sleepEnd,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
   }
 
-  return data;
+  return { data, conditionMap };
 }
 
 // スクリプト実行

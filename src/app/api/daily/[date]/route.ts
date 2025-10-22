@@ -13,6 +13,8 @@ const upsertSchema = z
   .object({
     memo: z.string().max(5000).optional(),
     condition: z.number().int().min(-2).max(2).optional(),
+    sleepStart: z.string().datetime().optional().nullable(),
+    sleepEnd: z.string().datetime().optional().nullable(),
   })
   .refine(
     (value) => Object.keys(value).length > 0,
@@ -71,6 +73,12 @@ export async function PUT(request: Request, context: RouteContext) {
 
   const memo = parsed.data.memo ?? existing?.memo ?? null;
   const condition = parsed.data.condition ?? existing?.condition ?? 0;
+  const sleepStart = parsed.data.sleepStart !== undefined
+    ? (parsed.data.sleepStart ? new Date(parsed.data.sleepStart) : null)
+    : (existing?.sleepStart ?? null);
+  const sleepEnd = parsed.data.sleepEnd !== undefined
+    ? (parsed.data.sleepEnd ? new Date(parsed.data.sleepEnd) : null)
+    : (existing?.sleepEnd ?? null);
   const now = new Date();
 
   const [record] = await db
@@ -79,6 +87,8 @@ export async function PUT(request: Request, context: RouteContext) {
       date: parsedParams.data.date,
       memo,
       condition,
+      sleepStart,
+      sleepEnd,
       createdAt: now,
       updatedAt: now,
     })
@@ -87,6 +97,8 @@ export async function PUT(request: Request, context: RouteContext) {
       set: {
         memo,
         condition,
+        sleepStart,
+        sleepEnd,
         updatedAt: now,
       },
     })
