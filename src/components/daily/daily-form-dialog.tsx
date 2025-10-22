@@ -5,35 +5,30 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
-import {
-  CONDITION_COLORS,
-  CONDITION_METADATA,
-  CONDITION_VALUES_DESC,
-  type ConditionValue,
-} from "@/constants/condition-style";
 
 interface DailyFormDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (data: {
     memo: string;
-    condition: ConditionValue;
+    condition: number;
     sleepStart?: string | null;
     sleepEnd?: string | null;
   }) => void;
   date: string; // YYYY-MM-DD
   initialMemo?: string; // 既存の日記内容（編集時）
-  initialCondition?: ConditionValue; // 既存のコンディション（編集時）
+  initialCondition?: number; // 既存のコンディション（編集時）
   initialSleepStart?: string | null; // 既存の就寝時刻（編集時）
   initialSleepEnd?: string | null; // 既存の起床時刻（編集時）
 }
 
-const conditionOptions = CONDITION_VALUES_DESC.map((value) => ({
-  value,
-  label: CONDITION_METADATA[value].label,
-  description: CONDITION_METADATA[value].description,
-  bgColor: CONDITION_COLORS[value].dot,
-}));
+const conditionOptions = [
+  { value: 2, label: "+2", description: "最高", bgColor: "bg-sky-500" },
+  { value: 1, label: "+1", description: "良い", bgColor: "bg-green-400" },
+  { value: 0, label: "±0", description: "普通", bgColor: "bg-gray-400" },
+  { value: -1, label: "-1", description: "悪い", bgColor: "bg-orange-400" },
+  { value: -2, label: "-2", description: "最悪", bgColor: "bg-red-600" },
+];
 
 export function DailyFormDialog({
   isOpen,
@@ -46,7 +41,7 @@ export function DailyFormDialog({
   initialSleepEnd = null,
 }: DailyFormDialogProps) {
   const [memo, setMemo] = useState(initialMemo);
-  const [condition, setCondition] = useState<ConditionValue>(initialCondition);
+  const [condition, setCondition] = useState(initialCondition);
   const [sleepStart, setSleepStart] = useState(initialSleepStart);
   const [sleepEnd, setSleepEnd] = useState(initialSleepEnd);
 

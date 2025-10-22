@@ -16,23 +16,28 @@ import {
 import { ja } from "date-fns/locale";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  CONDITION_COLORS,
-  type ConditionValue,
-} from "@/constants/condition-style";
 
 interface Daily {
   date: string;
   memo: string | null;
-  condition: ConditionValue;
+  condition: number;
 }
 
 interface CalendarViewProps {
   dailies: Daily[];
   onEdit?: (date: string) => void;
   onAddNew?: (date: string) => void;
-  selectedCondition?: ConditionValue | null;
+  selectedCondition?: number | null;
 }
+
+// コンディションの色設定
+const conditionColors = {
+  2: "bg-sky-500",
+  1: "bg-green-400",
+  0: "bg-gray-400",
+  "-1": "bg-orange-400",
+  "-2": "bg-red-600",
+} as const;
 
 export function CalendarView({
   dailies,
@@ -185,7 +190,7 @@ export function CalendarView({
                   <div className="mt-0.5 sm:mt-1 flex justify-center">
                     <div
                       className={`h-4 w-4 sm:h-6 sm:w-6 rounded-full ${
-                        CONDITION_COLORS[daily.condition].dot
+                        conditionColors[daily.condition as keyof typeof conditionColors]
                       }`}
                       title={`コンディション: ${daily.condition > 0 ? "+" : ""}${daily.condition}`}
                     />

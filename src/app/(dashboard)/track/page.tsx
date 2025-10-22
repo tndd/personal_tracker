@@ -6,15 +6,13 @@ import { TrackCard } from "@/components/track/track-card";
 import { TrackEditDialog } from "@/components/track/track-edit-dialog";
 import { TrackSidebarContent } from "@/components/track/track-sidebar-content";
 import { useSidebarContent } from "@/contexts/sidebar-content-context";
-import { normalizeCondition, type ConditionValue } from "@/constants/condition-style";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
 import { ArrowUp, Loader2 } from "lucide-react";
 import type { Track, Tag, Category } from "@/lib/db/schema";
 
 // トラックとタグ情報を組み合わせた型
-type TrackWithTags = Omit<Track, "condition"> & {
-  condition: ConditionValue;
+type TrackWithTags = Track & {
   tags: Array<Tag & { category: Category }>;
 };
 
@@ -41,7 +39,7 @@ export default function TrackPage() {
   // フィルター状態
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedConditions, setSelectedConditions] = useState<ConditionValue[]>([]);
+  const [selectedConditions, setSelectedConditions] = useState<number[]>([]);
 
   // タグ情報を取得してキャッシュする
   const fetchTagsInfo = useCallback(async (tagIds: string[]) => {
@@ -88,7 +86,7 @@ export default function TrackPage() {
     return format(createdAt, "yyyy年M月d日 HH:mm", { locale: ja });
   }, []);
 
-  const handleSubmit = useCallback(async (data: { memo: string; condition: ConditionValue; tagIds: string[] }) => {
+  const handleSubmit = useCallback(async (data: { memo: string; condition: number; tagIds: string[] }) => {
     try {
       const response = await fetch("/api/tracks", {
         method: "POST",
@@ -112,7 +110,6 @@ export default function TrackPage() {
 
       const trackWithTags: TrackWithTags = {
         ...newTrack,
-        condition: normalizeCondition(newTrack.condition ?? 0),
         tags,
       };
 
@@ -153,7 +150,7 @@ export default function TrackPage() {
     setEditError(null);
   }, []);
 
-  const handleEditSubmit = useCallback(async (trackId: string, data: { memo: string; condition: ConditionValue; tagIds: string[] }) => {
+  const handleEditSubmit = useCallback(async (trackId: string, data: { memo: string; condition: number; tagIds: string[] }) => {
     setIsEditSubmitting(true);
     setEditError(null);
 
@@ -179,7 +176,6 @@ export default function TrackPage() {
 
       const trackWithTags: TrackWithTags = {
         ...updatedTrack,
-        condition: normalizeCondition(updatedTrack.condition ?? 0),
         tags,
       };
 
@@ -195,7 +191,7 @@ export default function TrackPage() {
     }
   }, [fetchTagsInfo]);
 
-  const handleEditDialogSubmit = useCallback((data: { memo: string; condition: ConditionValue; tagIds: string[] }) => {
+  const handleEditDialogSubmit = useCallback((data: { memo: string; condition: number; tagIds: string[] }) => {
     if (!editingTrack) return;
     void handleEditSubmit(editingTrack.id, data);
   }, [editingTrack, handleEditSubmit]);
@@ -242,7 +238,6 @@ export default function TrackPage() {
       // 各トラックにタグ情報を付与（キャッシュから取得）
       const tracksWithTags: TrackWithTags[] = newTracks.map((track) => ({
         ...track,
-        condition: normalizeCondition(track.condition ?? 0),
         tags: (track.tagIds || [])
           .map((id) => tagsCache.get(id))
           .filter((tag): tag is Tag & { category: Category } => tag !== undefined),
@@ -359,7 +354,7 @@ export default function TrackPage() {
     if (selectedConditions.length > 0) {
       result = result.filter((track) => {
         // 選択されたコンディションのいずれかに一致するか
-        return selectedConditions.includes(track.condition);
+        return selectedConditions.includes(track.condition ?? 0);
       });
     }
 
@@ -438,7 +433,7 @@ export default function TrackPage() {
               key={track.id}
               id={track.id}
               memo={track.memo || ""}
-              condition={track.condition}
+              condition={track.condition ?? 0}
               tags={track.tags.map((tag) => ({
                 id: tag.id,
                 name: tag.name,
@@ -471,7 +466,7 @@ export default function TrackPage() {
           onSubmit={handleEditDialogSubmit}
           trackLabel={formatTrackLabel(editingTrack)}
           initialMemo={editingTrack.memo ?? ""}
-          initialCondition={editingTrack.condition}
+          initialCondition={editingTrack.condition ?? 0}
           initialTags={editingTrack.tags.map((tag) => ({
             id: tag.id,
             name: tag.name,

@@ -5,11 +5,6 @@ import { AnalysisSidebarContent, AnalysisView } from "@/components/analysis/anal
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useSidebarContent } from "@/contexts/sidebar-content-context";
-import {
-  CONDITION_COLORS,
-  CONDITION_METADATA,
-  CONDITION_VALUES_DESC,
-} from "@/constants/condition-style";
 
 // 集計データの型
 type ConditionData = {
@@ -414,17 +409,40 @@ export default function AnalysisPage() {
                               {hasData ? (
                                 <div className="flex flex-col" style={{ height: `${BAR_HEIGHT}px` }}>
                                   {/* +2の領域（最上部） */}
-                                  {CONDITION_VALUES_DESC.map((value) => {
-                                    const ratio = ratios[value] ?? 0;
-                                    if (ratio <= 0) return null;
-                                    return (
-                                      <div
-                                        key={`${item.slotIndex}-ratio-${value}`}
-                                        className={CONDITION_COLORS[value].dot}
-                                        style={{ height: `${ratio * BAR_HEIGHT}px` }}
-                                      />
-                                    );
-                                  })}
+                                  {ratios[2] > 0 && (
+                                    <div
+                                      className="bg-sky-500"
+                                      style={{ height: `${ratios[2] * BAR_HEIGHT}px` }}
+                                    />
+                                  )}
+                                  {/* +1の領域 */}
+                                  {ratios[1] > 0 && (
+                                    <div
+                                      className="bg-green-400"
+                                      style={{ height: `${ratios[1] * BAR_HEIGHT}px` }}
+                                    />
+                                  )}
+                                  {/* 0の領域（中央） */}
+                                  {ratios[0] > 0 && (
+                                    <div
+                                      className="bg-gray-400"
+                                      style={{ height: `${ratios[0] * BAR_HEIGHT}px` }}
+                                    />
+                                  )}
+                                  {/* -1の領域 */}
+                                  {ratios[-1] > 0 && (
+                                    <div
+                                      className="bg-orange-400"
+                                      style={{ height: `${ratios[-1] * BAR_HEIGHT}px` }}
+                                    />
+                                  )}
+                                  {/* -2の領域（最下部） */}
+                                  {ratios[-2] > 0 && (
+                                    <div
+                                      className="bg-red-500"
+                                      style={{ height: `${ratios[-2] * BAR_HEIGHT}px` }}
+                                    />
+                                  )}
                                 </div>
                               ) : null}
                             </div>
@@ -454,19 +472,27 @@ export default function AnalysisPage() {
 
               {/* 凡例 */}
               <div className="flex flex-wrap justify-center gap-3 sm:gap-4 text-xs">
-                {CONDITION_VALUES_DESC.map((value) => (
-                  <div key={`legend-${value}`} className="flex items-center gap-1">
-                    <div className={`h-3 w-3 rounded ${CONDITION_COLORS[value].dot}`} />
-                    {value === 0 ? (
-                      <>
-                        <span className="hidden sm:inline">基準（{CONDITION_METADATA[value].label}）</span>
-                        <span className="sm:hidden">{CONDITION_METADATA[value].label}</span>
-                      </>
-                    ) : (
-                      <span>{CONDITION_METADATA[value].label}</span>
-                    )}
-                  </div>
-                ))}
+                <div className="flex items-center gap-1">
+                  <div className="h-3 w-3 rounded bg-sky-500" />
+                  <span>+2</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="h-3 w-3 rounded bg-green-400" />
+                  <span>+1</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="h-3 w-3 rounded bg-gray-400" />
+                  <span className="hidden sm:inline">基準（±0）</span>
+                  <span className="sm:hidden">±0</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="h-3 w-3 rounded bg-orange-400" />
+                  <span>-1</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="h-3 w-3 rounded bg-red-500" />
+                  <span>-2</span>
+                </div>
               </div>
             </div>
           )}

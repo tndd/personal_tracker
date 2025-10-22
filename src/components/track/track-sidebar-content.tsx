@@ -4,38 +4,27 @@ import { useEffect, useState } from "react";
 import { Search, ChevronDown, ChevronRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import type { Category, Tag } from "@/lib/db/schema";
-import {
-  CONDITION_COLORS,
-  CONDITION_METADATA,
-  CONDITION_VALUES_ASC,
-  type ConditionValue,
-} from "@/constants/condition-style";
 
 interface TrackSidebarContentProps {
   selectedTagIds: string[];
   onTagsChange: (tagIds: string[]) => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
-  selectedConditions: ConditionValue[];
-  onConditionsChange: (conditions: ConditionValue[]) => void;
+  selectedConditions: number[];
+  onConditionsChange: (conditions: number[]) => void;
 }
 
 interface CategoryWithTags extends Category {
   tags: Tag[];
 }
 
-const conditionOptions = CONDITION_VALUES_ASC.map((value) => {
-  const { label } = CONDITION_METADATA[value];
-  const colors = CONDITION_COLORS[value];
-  return {
-    value,
-    label,
-    shortLabel: label,
-    color: colors.dot,
-    textColor: colors.filterText,
-    size: colors.filterDotSize,
-  };
-});
+const conditionOptions = [
+  { value: -2, label: "-2", shortLabel: "-2", color: "bg-red-600", textColor: "text-red-700", size: "w-[20px] h-[20px]" },
+  { value: -1, label: "-1", shortLabel: "-1", color: "bg-orange-400", textColor: "text-orange-600", size: "w-[16px] h-[16px]" },
+  { value: 0, label: "±0", shortLabel: "±0", color: "bg-gray-400", textColor: "text-gray-700", size: "w-3 h-3" },
+  { value: 1, label: "+1", shortLabel: "+1", color: "bg-green-400", textColor: "text-green-600", size: "w-[16px] h-[16px]" },
+  { value: 2, label: "+2", shortLabel: "+2", color: "bg-sky-500", textColor: "text-sky-700", size: "w-[20px] h-[20px]" },
+];
 
 export function TrackSidebarContent({
   selectedTagIds,
@@ -109,7 +98,7 @@ export function TrackSidebarContent({
     }
   };
 
-  const toggleCondition = (value: ConditionValue) => {
+  const toggleCondition = (value: number) => {
     if (selectedConditions.includes(value)) {
       onConditionsChange(selectedConditions.filter((v) => v !== value));
     } else {

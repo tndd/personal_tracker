@@ -3,25 +3,15 @@ import { format } from "date-fns";
 import { ja } from "date-fns/locale";
 import { Edit2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  CONDITION_COLORS,
-  CONDITION_METADATA,
-  CONDITION_VALUES_DESC,
-  type ConditionValue,
-} from "@/constants/condition-style";
 
 // コンディションの表示用（色ベース）
-const conditionConfig = CONDITION_VALUES_DESC.reduce(
-  (acc, value) => {
-    acc[value] = {
-      label: CONDITION_METADATA[value].label,
-      bgColor: CONDITION_COLORS[value].dot,
-      textColor: CONDITION_COLORS[value].text,
-    };
-    return acc;
-  },
-  {} as Record<ConditionValue, { label: string; bgColor: string; textColor: string }>
-);
+const conditionConfig = {
+  2: { label: "+2", bgColor: "bg-sky-500", textColor: "text-sky-600" },
+  1: { label: "+1", bgColor: "bg-green-400", textColor: "text-green-400" },
+  0: { label: "±0", bgColor: "bg-gray-400", textColor: "text-gray-500" },
+  "-1": { label: "-1", bgColor: "bg-orange-400", textColor: "text-orange-500" },
+  "-2": { label: "-2", bgColor: "bg-red-600", textColor: "text-red-600" },
+} as const;
 
 interface Tag {
   id: string;
@@ -33,7 +23,7 @@ interface Tag {
 interface TrackCardProps {
   id: string;
   memo: string | null;
-  condition: ConditionValue;
+  condition: number;
   tags: Tag[];
   createdAt: string;
   onEdit?: () => void;
@@ -49,7 +39,7 @@ export function TrackCard({
   onEdit,
   onDelete,
 }: TrackCardProps) {
-  const config = conditionConfig[condition];
+  const config = conditionConfig[condition as keyof typeof conditionConfig];
   const date = new Date(createdAt);
 
   return (
